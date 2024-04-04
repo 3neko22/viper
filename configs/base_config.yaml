@@ -13,17 +13,18 @@ dataset:                                            # Dataset configuration
 load_models:                                        # Which pretrained models to load
     maskrcnn: False
     clip: False
-    glip: True
+    glip: False # E* : Default -> True
     owlvit: False
     tcl: False
-    gpt3_qa: True
-    gpt3_general: True
-    depth: True
-    blip: True
+    gpt3_qa: False # E* : Default -> True
+    gpt3_general: False # E* : Default -> True
+    depth: False # E* : Default -> True #MiDaS
+    blip: False # E* : Default -> True
     saliency: False
-    xvlm: True
+    xvlm: False # E* : Default -> True
     codex: True
     codellama: False
+    quantized: False # Añadido para Probar con Cosas Quantificadas Default : False 
 
 detect_thresholds:                                  # Thresholds for the models that perform detection
     glip: 0.5

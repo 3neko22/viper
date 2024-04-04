@@ -2,9 +2,9 @@ import os
 from omegaconf import OmegaConf
 
 # The default
-config_names = os.getenv('CONFIG_NAMES', None)
+config_names = os.getenv('CONFIG_NAMES', None) # En vez del None pondriamos  -> (config_codellama, my_config) por ejemplo
 if config_names is None:
-    config_names = 'my_config'  # Modify this if you want to use another default config
+    config_names = 'my_config,Quantized_config'  # Modify this if you want to use another default config
 
 configs = [OmegaConf.load('configs/base_config.yaml')]
 

@@ -12,7 +12,7 @@ from rich.console import Console
 from time import time
 from typing import Callable, Union
 
-from configs import config
+from configs import config # es una variable global creado por omegaconfs
 
 console = Console(highlight=False)
 
@@ -32,7 +32,7 @@ else:
     list_models = None
     manager = None
 
-
+# NO HACER CASO
 def make_fn(model_class, process_name, counter):
     """
     model_class.name and process_name will be the same unless the same model is used in multiple processes, for
@@ -40,8 +40,8 @@ def make_fn(model_class, process_name, counter):
     """
     # We initialize each one on a separate GPU, to make sure there are no out of memory errors
     num_gpus = torch.cuda.device_count()
-    gpu_number = counter % num_gpus
-
+    if num_gpus == 0: gpu_number = 0 
+    else: gpu_number = counter % num_gpus
     model_instance = model_class(gpu_number=gpu_number)
 
     def _function(*args, **kwargs):
@@ -134,7 +134,7 @@ if config.multiprocessing:
 
         return _function
 
-
+    # Multiprocessing no esta activado
     if mp.current_process().name == 'MainProcess':
         queues_in: Union[dict[str, mp.Queue], None] = dict()
         consumers: dict[str, Union[mp.Process, Callable]] = dict()
@@ -160,14 +160,14 @@ if config.multiprocessing:
     else:
         queues_in = None
 
-
+    # Multiprocessing NO HACER CASO
     def finish_all_consumers():
         # Wait for consumers to finish
         for q_in in queues_in.values():
             q_in.put(None)
         for cons in consumers.values():
             cons.join()
-
+# Esto ejecuta
 else:
 
     consumers = dict()
@@ -184,7 +184,7 @@ else:
     def finish_all_consumers():
         pass
 
-
+# queues None args.default, model_name -> codex , *args(no hay mas) , *kargs (prompt y query)
 def forward(model_name, *args, queues=None, **kwargs):
     """
     Sends data to consumer (calls their "forward" method), and returns the result
@@ -193,10 +193,11 @@ def forward(model_name, *args, queues=None, **kwargs):
                 'The available models are: {}. Make sure to activate it in the configs files'
     if not config.multiprocessing:
         try:
-            out = consumers[model_name](*args, **kwargs)
+            out = consumers[model_name](*args, **kwargs) # args: -> no hay en este caso and kwargs: -> (prompt, query)
+
         except KeyError as e:
             raise KeyError(error_msg.format(list(consumers.keys()))) from e
-    else:
+    else: # NO INTERESA AHORA
         if queues is None:
             consumer_queues_in, queue_results = None, None
         else:

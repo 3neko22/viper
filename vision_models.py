@@ -29,9 +29,13 @@ from typing import List, Union
 from configs import config
 from utils import HiddenPrints
 
-with open('api.key') as f:
-    openai.api_key = f.read().strip()
+# with open('api.key') as f:
+#     openai.api_key = f.read().strip()
 
+with open('api.key',"rb") as f:
+    openai.api_key = f.read().decode('latin-1').strip()[2:] 
+    # Adibidez : "ÿbsk-dshkjdhaeuc545kl4h5ik35" agertzen da ez dakit zergatik, beraz 2. elementutik aurrera gordetzen da
+    
 cache = Memory('cache/' if config.use_cache else None, verbose=0)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 console = Console(highlight=False)
@@ -968,6 +972,7 @@ def codex_helper(extended_prompt):
                 {"role": "system", "content": "Only answer with a function starting def execute_command."},
                 {"role": "user", "content": prompt}
             ],
+            stream = True, # añadido
             temperature=config.codex.temperature,
             max_tokens=config.codex.max_tokens,
             top_p=1.,
@@ -977,9 +982,11 @@ def codex_helper(extended_prompt):
             stop=["\n\n"],
         )
             for prompt in extended_prompt]
+        print("aurretik")
         resp = [r['choices'][0]['message']['content'].replace("execute_command(image)",
                                                               "execute_command(image, my_fig, time_wait_between_lines, syntax)")
                 for r in responses]
+        print("ondoren")
     #         if len(resp) == 1:
     #             resp = resp[0]
     else:
@@ -1029,7 +1036,12 @@ class CodexModel(BaseModel):
                 base_prompt = f.read().strip()
         elif base_prompt is None:
             base_prompt = self.base_prompt
-
+        if isinstance(extra_context,list):
+            for i, ec in enumerate(extra_context):
+                if ec is None:
+                    extra_context[i]=""
+        elif extra_context is None:
+            extra_context = ""
         if isinstance(prompt, list):
             extended_prompt = [base_prompt.replace("INSERT_QUERY_HERE", p).
                                replace('INSERT_TYPE_HERE', input_type).
@@ -1150,6 +1162,48 @@ class CodeLlama(CodexModel):
         torch.cuda.empty_cache()
         return response
 
+# BERRIA
+class quantized(CodexModel):
+    def __init__(self, gpu_number=0):
+        super().__init__(gpu_number=gpu_number)
+
+        from transformers import AutoModel, AutoTokenizer
+
+        name = 'quantized'
+        requires_gpu = False
+        max_batch_size = 3
+        load_order = 1  # Load this model last
+        model_id_repo = config.codex.quantized_model_repo
+        model_id_file = config.codex.quantized_model_file
+        token_id_name = config.codex.codellama_tokenizer_name
+
+        if model_id_repo.startswith('/') or token_id_name.startswith('/'):
+            assert os.path.exists(model_id_repo), \
+                f'Model path {model_id_repo} does not exist. If you use the model ID it will be downloaded automatically'
+            assert os.path.exists(token_id_name), \
+                f'Model path {model_id_repo} does not exist. If you use the model ID it will be downloaded automatically'
+        else:
+            assert model_id_repo == 'TheBloke/CodeLlama-34B-GGUF'
+            assert model_id_file in ['codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
+            assert token_id_name in ['codellama/CodeLlama-7b-hf', 'codellama/CodeLlama-13b-hf', 'codellama/CodeLlama-34b-hf',
+                                    'codellama/CodeLlama-7b-Python-hf', 'codellama/CodeLlama-13b-Python-hf',
+                                    'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
+                                    'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
+        ## Tokenizatzailearen Tokia -> Zein erabili?
+        self.tokenizer = AutoTokenizer.from_pretrained(token_id_name)
+        ## Modelu preentrenatuaren Tokia 
+        self.
+
+        usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
+        leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
+        max_memory = {}
+        for gpu_number in range(torch.cuda.device_count()):
+            mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
+            if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
+                mem_available = 0
+                max_memory[gpu_number] = mem_available * usage_ratio
+            if gpu_number == 0:
+                max_memory[gpu_number] /= 10
 
 class BLIPModel(BaseModel):
     name = 'blip'
@@ -1163,7 +1217,6 @@ class BLIPModel(BaseModel):
 
         # from lavis.models import load_model_and_preprocess
         from transformers import Blip2Processor, Blip2ForConditionalGeneration
-
         # https://huggingface.co/models?sort=downloads&search=Salesforce%2Fblip2-
         assert blip_v2_model_type in ['blip2-flan-t5-xxl', 'blip2-flan-t5-xl', 'blip2-opt-2.7b', 'blip2-opt-6.7b',
                                       'blip2-opt-2.7b-coco', 'blip2-flan-t5-xl-coco', 'blip2-opt-6.7b-coco']

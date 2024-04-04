@@ -1,0 +1,11 @@
+codex:
+    model: quantized
+    quantized_model_repo: 'TheBloke/CodeLlama-34B-GGUF'
+    quantized_model_file: 'codellama-34b.Q2_K.gguf'
+    codellama_tokenizer_name: /path/to/code_llama_models/CodeLlama-34b-Python-hf
+load_models:
+    codex: False
+    codellama: False
+    quantized: True  
+
+# BEGIRATU PARAMETROEN ESPEZIFIKAZIOAK -> (Temperature, batch_size, ...)

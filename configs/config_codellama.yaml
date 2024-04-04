@@ -4,3 +4,4 @@ codex:
 load_models:
     codex: False
     codellama: True
+    quantized: False
