@@ -1167,12 +1167,10 @@ class quantized(CodexModel):
     def __init__(self, gpu_number=0):
         super().__init__(gpu_number=gpu_number)
 
-        from transformers import AutoModel, AutoTokenizer
+        from ctransformers import AutoModelForCausalLM
+        from transformers import AutoTokenizer
 
         name = 'quantized'
-        requires_gpu = False
-        max_batch_size = 3
-        load_order = 1  # Load this model last
         model_id_repo = config.codex.quantized_model_repo
         model_id_file = config.codex.quantized_model_file
         token_id_name = config.codex.codellama_tokenizer_name
@@ -1181,7 +1179,7 @@ class quantized(CodexModel):
             assert os.path.exists(model_id_repo), \
                 f'Model path {model_id_repo} does not exist. If you use the model ID it will be downloaded automatically'
             assert os.path.exists(token_id_name), \
-                f'Model path {model_id_repo} does not exist. If you use the model ID it will be downloaded automatically'
+                f'Model path {token_id_name} does not exist. If you use the model ID it will be downloaded automatically'
         else:
             assert model_id_repo == 'TheBloke/CodeLlama-34B-GGUF'
             assert model_id_file in ['codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
@@ -1191,19 +1189,52 @@ class quantized(CodexModel):
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
         ## Tokenizatzailearen Tokia -> Zein erabili?
         self.tokenizer = AutoTokenizer.from_pretrained(token_id_name)
-        ## Modelu preentrenatuaren Tokia 
-        self.
-
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = 'left'
         usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
         leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
         max_memory = {}
         for gpu_number in range(torch.cuda.device_count()):
             mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
             if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
-                mem_available = 0
+                mem_available = 0 
                 max_memory[gpu_number] = mem_available * usage_ratio
             if gpu_number == 0:
                 max_memory[gpu_number] /= 10
+
+        ## Modelu preentrenatuaren Tokia 
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id_repo, 
+            model_file=model_id_file, 
+            model_type="llama", 
+            context_length=6000, 
+            max_new_tokens=2000, 
+            gpu_layers=0,
+        )
+        self.model.eval()
+    def run_code_Quantized_llama(self, prompt):
+        # input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        # generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=128)
+        # generated_ids = generated_ids[:, input_ids.shape[-1]:]
+        # generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=True) for gen_id in generated_ids]
+        # generated_text = [text.split('\n\n')[0] for text in generated_text]
+        from transformers import pipeline
+        pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
+        generated_text = pipe(prompt, max_tokens = 256)
+        return generated_text
+    
+    def forward_(self, extended_prompt):
+        if len(extended_prompt) > self.max_batch_size:
+            response = []
+            for i in range(0, len(extended_prompt), self.max_batch_size):
+                response += self.forward_(extended_prompt[i:i + self.max_batch_size])
+            return response
+        with torch.no_grad():
+            response = self.run_code_Quantized_llama(extended_prompt)
+        # Clear GPU memory
+        torch.cuda.empty_cache()
+        return response
+    
 
 class BLIPModel(BaseModel):
     name = 'blip'
