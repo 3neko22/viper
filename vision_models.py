@@ -1164,13 +1164,13 @@ class CodeLlama(CodexModel):
 
 # BERRIA
 class quantized(CodexModel):
+    name = 'quantized'
     def __init__(self, gpu_number=0):
         super().__init__(gpu_number=gpu_number)
 
         from ctransformers import AutoModelForCausalLM
         from transformers import AutoTokenizer
 
-        name = 'quantized'
         model_id_repo = config.codex.quantized_model_repo
         model_id_file = config.codex.quantized_model_file
         token_id_name = config.codex.codellama_tokenizer_name
@@ -1181,8 +1181,8 @@ class quantized(CodexModel):
             assert os.path.exists(token_id_name), \
                 f'Model path {token_id_name} does not exist. If you use the model ID it will be downloaded automatically'
         else:
-            assert model_id_repo == 'TheBloke/CodeLlama-34B-GGUF'
-            assert model_id_file in ['codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
+            assert model_id_repo in ['TheBloke/CodeLlama-34B-GGUF','TheBloke/CodeLlama-7B-GGUF']
+            assert model_id_file in ['codellama-7b.Q2_K.gguf','codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
             assert token_id_name in ['codellama/CodeLlama-7b-hf', 'codellama/CodeLlama-13b-hf', 'codellama/CodeLlama-34b-hf',
                                     'codellama/CodeLlama-7b-Python-hf', 'codellama/CodeLlama-13b-Python-hf',
                                     'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
@@ -1191,16 +1191,16 @@ class quantized(CodexModel):
         self.tokenizer = AutoTokenizer.from_pretrained(token_id_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
-        usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
-        leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
-        max_memory = {}
-        for gpu_number in range(torch.cuda.device_count()):
-            mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
-            if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
-                mem_available = 0 
-                max_memory[gpu_number] = mem_available * usage_ratio
-            if gpu_number == 0:
-                max_memory[gpu_number] /= 10
+        # usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
+        # leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
+        # max_memory = {}
+        # for gpu_number in range(torch.cuda.device_count()):
+        #     mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
+        #     if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
+        #         mem_available = 0 
+        #         max_memory[gpu_number] = mem_available * usage_ratio
+        #     if gpu_number == 0:
+        #         max_memory[gpu_number] /= 10
 
         ## Modelu preentrenatuaren Tokia 
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -1208,8 +1208,9 @@ class quantized(CodexModel):
             model_file=model_id_file, 
             model_type="llama", 
             context_length=6000, 
-            max_new_tokens=2000, 
-            gpu_layers=0,
+            max_new_tokens=3000, 
+            gpu_layers=27, 
+            hf= True,
         )
         self.model.eval()
     def run_code_Quantized_llama(self, prompt):
@@ -1220,7 +1221,7 @@ class quantized(CodexModel):
         # generated_text = [text.split('\n\n')[0] for text in generated_text]
         from transformers import pipeline
         pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
-        generated_text = pipe(prompt, max_tokens = 256)
+        generated_text = pipe(prompt, max_new_tokens = 256)
         return generated_text
     
     def forward_(self, extended_prompt):

@@ -1,10 +1,10 @@
 codex:
     model: quantized
-    quantized_model_repo: 'TheBloke/CodeLlama-34B-GGUF'
-    quantized_model_file: 'codellama-34b.Q2_K.gguf'
-    codellama_tokenizer_name: /path/to/code_llama_models/CodeLlama-34b-Python-hf
+    quantized_model_repo: 'TheBloke/CodeLlama-7B-GGUF'
+    quantized_model_file: 'codellama-7b.Q2_K.gguf'
+    codellama_tokenizer_name: 'codellama/CodeLlama-7b-hf'
 load_models:
-    codex: False
+    codex: false
     codellama: False
     quantized: True  
 
