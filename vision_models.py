@@ -1042,6 +1042,10 @@ class CodexModel(BaseModel):
                     extra_context[i]=""
         elif extra_context is None:
             extra_context = ""
+        else: 
+            with open(extra_context) as f:
+                extra_prompt = f.read().strip()
+            extra_context = extra_prompt
         if isinstance(prompt, list):
             extended_prompt = [base_prompt.replace("INSERT_QUERY_HERE", p).
                                replace('INSERT_TYPE_HERE', input_type).
@@ -1181,19 +1185,19 @@ class quantized(CodexModel):
             assert os.path.exists(token_id_name), \
                 f'Model path {token_id_name} does not exist. If you use the model ID it will be downloaded automatically'
         else:
-            assert model_id_repo in ['TheBloke/CodeLlama-34B-GGUF','TheBloke/CodeLlama-7B-GGUF']
-            assert model_id_file in ['codellama-7b.Q2_K.gguf','codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
+            assert model_id_repo in ['TheBloke/CodeLlama-34B-GGUF','TheBloke/CodeLlama-7B-GGUF','TheBloke/CodeLlama-13B-GGUF']
+            assert model_id_file in ['codellama-7b.Q2_K.gguf','codellama-13b.Q2_K.gguf','codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
             assert token_id_name in ['codellama/CodeLlama-7b-hf', 'codellama/CodeLlama-13b-hf', 'codellama/CodeLlama-34b-hf',
                                     'codellama/CodeLlama-7b-Python-hf', 'codellama/CodeLlama-13b-Python-hf',
                                     'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
         ## Tokenizatzailearen Tokia -> Zein erabili?
-        self.tokenizer = AutoTokenizer.from_pretrained(token_id_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(token_id_name, max_length=15000)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
-        # usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
-        # leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
-        # max_memory = {}
+        usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
+        leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
+        max_memory = {}
         # for gpu_number in range(torch.cuda.device_count()):
         #     mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
         #     if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
@@ -1207,21 +1211,21 @@ class quantized(CodexModel):
             model_id_repo, 
             model_file=model_id_file, 
             model_type="llama", 
-            context_length=6000, 
-            max_new_tokens=3000, 
+            context_length=11000, 
+            max_new_tokens=3000,
             gpu_layers=27, 
             hf= True,
         )
         self.model.eval()
     def run_code_Quantized_llama(self, prompt):
         # input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
-        # generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=128)
+        # generated_ids = self.model.generate(input_ids.to("cpu"), max_new_tokens=128)
         # generated_ids = generated_ids[:, input_ids.shape[-1]:]
-        # generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=True) for gen_id in generated_ids]
+        # generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
         # generated_text = [text.split('\n\n')[0] for text in generated_text]
         from transformers import pipeline
         pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
-        generated_text = pipe(prompt, max_new_tokens = 256)
+        generated_text = pipe(prompt, max_new_tokens = 128)
         return generated_text
     
     def forward_(self, extended_prompt):

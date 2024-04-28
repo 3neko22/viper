@@ -439,6 +439,7 @@ class VideoSegment:
         for i in range(self.num_frames):
             yield self.frame_from_index(i)
 
+EXTRA_CONTEXT_HERE
 
 # Examples of how to use the API
 # INSERT_QUERY_HERE

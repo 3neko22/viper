@@ -329,11 +329,12 @@ def coerce_to_numeric(string):
     If the input string contains a range (e.g. "10-15"), it returns the first value in the range.
     """
     return coerce_to_numeric(string)
+EXTRA_CONTEXT_HERE
 
 Write a function using Python and the ImagePatch class (above) that could be executed to provide an answer to the query. 
 
 Consider the following guidelines:
 - Use base Python (comparison, sorting) for basic logical operations, left/right/up/down, math, etc.
 - Use the llm_query function to access external information and answer informational questions not concerning the image.
-
 Query: INSERT_QUERY_HERE
+

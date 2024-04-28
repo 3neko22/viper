@@ -3,6 +3,8 @@ codex:
     quantized_model_repo: 'TheBloke/CodeLlama-7B-GGUF'
     quantized_model_file: 'codellama-7b.Q2_K.gguf'
     codellama_tokenizer_name: 'codellama/CodeLlama-7b-hf'
+    extra_context: ./prompts/benchmarks/refcoco.prompt  
+    prompt: ./prompts/api.prompt
 load_models:
     codex: false
     codellama: False

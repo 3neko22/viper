@@ -5,3 +5,5 @@ from main_simple_lib import *
 
 query = 'How many muffins can each kid have for it to be fair?'
 code= get_code(query)
+
+
