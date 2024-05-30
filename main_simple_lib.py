@@ -256,68 +256,65 @@ def get_code(query):
     # 
     if config.codex.model == 'codellama':
         model_name_codex = 'codellama'
-    elif config.codex.model == 'quantized':
-        model_name_codex  = 'quantized'
+    elif config.codex.model == 'codellama_Q':
+        model_name_codex  = 'codellama_Q'
     else:
         model_name_codex = 'codex'
-    generated_text = forward(model_name_codex, prompt=query, input_type="image", extra_context = config.codex.extra_context)
-    output = generated_text[0]['generated_text']
-    text = output.split("\n\n\n")
-    code = text[-2]
+    code = forward(model_name_codex, prompt=query, input_type="image", extra_context = None)
     # Goiburua gehitzen dio sortutako kodeari 
-    # if config.codex.model not in ('gpt-3.5-turbo', 'gpt-4'):
-    #     code = f'def execute_command(image, my_fig, time_wait_between_lines, syntax):' + code # chat models give execute_command due to system behaviour
+    if config.codex.model not in ('gpt-3.5-turbo', 'gpt-4'):
+        code = f'def execute_command(image, my_fig, time_wait_between_lines, syntax):' + code # chat models give execute_command due to system behaviour
     code_for_syntax = code.replace("(image, my_fig, time_wait_between_lines, syntax)", "(image)")
     syntax_1 = Syntax(code_for_syntax, "python", theme="monokai", line_numbers=True, start_line=0)
     console.print(syntax_1)
     code = ast.unparse(ast.parse(code))
     code_for_syntax_2 = code.replace("(image, my_fig, time_wait_between_lines, syntax)", "(image)")
     syntax_2 = Syntax(code_for_syntax_2, "python", theme="monokai", line_numbers=True, start_line=0)
-    return code, syntax_2, output
+    return code, syntax_2
 
 ### FASE 2 #######
 
-# def execute_code(code, im, show_intermediate_steps=True):
-#     code, syntax = code
-#     code_line = inject_saver(code, show_intermediate_steps, syntax, time_wait_between_lines, console)
+def execute_code(code, im, show_intermediate_steps=True):
+    code, syntax = code
+    code_line = inject_saver(code, show_intermediate_steps, syntax, time_wait_between_lines, console)
 
-#     display(HTML("<style>.output_wrapper, .output {height:auto !important; max-height:1000000px;}</style>"))
+    display(HTML("<style>.output_wrapper, .output {height:auto !important; max-height:1000000px;}</style>"))
 
-#     with Live(Padding(syntax, 1), refresh_per_second=10, console=console, auto_refresh=True) as live:
-#         my_fig = plt.figure(figsize=(4, 4))
-#         try:
-#             exec(compile(code_line, 'Codex', 'exec'), globals())
-#             result = execute_command(im, my_fig, time_wait_between_lines, syntax)  # The code is created in the exec()
-#         except Exception as e:
-#             print(f"Encountered error {e} when trying to run with visualizations. Trying from scratch.")
-#             exec(compile(code, 'Codex', 'exec'), globals())
-#             result = execute_command(im, my_fig, time_wait_between_lines, syntax)  # The code is created in the exec()
+    with Live(Padding(syntax, 1), refresh_per_second=10, console=console, auto_refresh=True) as live:
+        my_fig = plt.figure(figsize=(4, 4))
+        try:
+            exec(compile(code_line, 'Codex', 'exec'), globals())
+            result = execute_command(im, my_fig, time_wait_between_lines, syntax)  # The code is created in the exec()
+        except Exception as e:
+            print(f"Encountered error {e} when trying to run with visualizations. Trying from scratch.")
+            exec(compile(code, 'Codex', 'exec'), globals())
+            result = execute_command(im, my_fig, time_wait_between_lines, syntax)  # The code is created in the exec()
 
-#         plt.close(my_fig)
+        plt.close(my_fig)
 
-#     def is_not_fig(x):
-#         if x is None:
-#             return True
-#         elif isinstance(x, str):
-#             return True
-#         elif isinstance(x, float):
-#             return True
-#         elif isinstance(x, int):
-#             return True
-#         elif isinstance(x, list) or isinstance(x, tuple):
-#             return all([is_not_fig(xx) for xx in x])
-#         elif isinstance(x, dict):
-#             return all([is_not_fig(xx) for xx in x.values()])
-#         return False
+    def is_not_fig(x):
+        if x is None:
+            return True
+        elif isinstance(x, str):
+            return True
+        elif isinstance(x, float):
+            return True
+        elif isinstance(x, int):
+            return True
+        elif isinstance(x, list) or isinstance(x, tuple):
+            return all([is_not_fig(xx) for xx in x])
+        elif isinstance(x, dict):
+            return all([is_not_fig(xx) for xx in x.values()])
+        return False
 
-#     f = None
-#     usefig = False
-#     if not is_not_fig(result):
-#         f = plt.figure(figsize=(4, 4))
-#         usefig = True
+    f = None
+    usefig = False
+    if not is_not_fig(result):
+        f = plt.figure(figsize=(4, 4))
+        usefig = True
 
-#     console.rule(f"[bold]Final Result[/bold]", style="chartreuse2")
-#     show_all(None, result, 'Result', fig=f, usefig=usefig, disp=False, console_in=console, time_wait_between_lines=0)
+    console.rule(f"[bold]Final Result[/bold]", style="chartreuse2")
+    show_all(None, result, 'Result', fig=f, usefig=usefig, disp=False, console_in=console, time_wait_between_lines=0)
 
 
 def show_single_image(im):

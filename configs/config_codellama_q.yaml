@@ -1,0 +1,10 @@
+codex:
+    model: codellama_Q
+    codellama_tokenizer_name: 'codellama/CodeLlama-7b-hf' 
+    prompt: ./prompts/api_no_video.prompt
+load_models:
+    codex: false
+    codellama: False
+    codellama_Q: True  
+
+# BEGIRATU PARAMETROEN ESPEZIFIKAZIOAK -> (Temperature, batch_size, ...)

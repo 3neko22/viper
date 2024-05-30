@@ -49,7 +49,7 @@ class BaseModel(abc.ABC):
     seconds_collect_data = 1.5  # Window of seconds to group inputs, if to_batch is True
     max_batch_size = 10  # Maximum batch size, if to_batch is True. Maximum allowed by OpenAI
     requires_gpu = True
-    num_gpus = 1  # Number of required GPUs
+    num_gpus = 2  # Number of required GPUs
     load_order = 0  # Order in which the model is loaded. Lower is first. By default, models are loaded alphabetically
 
     def __init__(self, gpu_number):
@@ -343,20 +343,20 @@ class MaskRCNNModel(BaseModel):
         detections = self.obj_detect(images)
         for i in range(len(images)):
             height = detections[i]['masks'].shape[-2]
-            # Just return boxes (no labels no masks, no scores) with scores > threshold
+            #Just return boxes (no labels no masks, no scores) with scores > threshold
             if return_labels:  # In the current implementation, we only return labels
                 d_i = detections[i]['labels'][detections[i]['scores'] > self.threshold]
                 detections[i] = set([self.categories[d] for d in d_i])
             else:
                 d_i = detections[i]['boxes'][detections[i]['scores'] > self.threshold]
-                # Return [left, lower, right, upper] instead of [left, upper, right, lower]
+                #Return [left, lower, right, upper] instead of [left, upper, right, lower]
                 detections[i] = torch.stack([d_i[:, 0], height - d_i[:, 3], d_i[:, 2], height - d_i[:, 1]], dim=1)
 
         return detections
 
     def forward(self, image, return_labels=False):
         obj_detections = self.detect(image, return_labels)
-        # Move to CPU before sharing. Alternatively we can try cloning tensors in CUDA, but may not work
+        #Move to CPU before sharing. Alternatively we can try cloning tensors in CUDA, but may not work
         obj_detections = [(v.to('cpu') if isinstance(v, torch.Tensor) else list(v)) for v in obj_detections]
         return obj_detections
 
@@ -447,7 +447,7 @@ class GLIPModel(BaseModel):
 
                 # manual override some options
                 cfg.local_rank = 0
-                cfg.num_gpus = 1
+                cfg.num_gpus = 2
                 cfg.merge_from_file(config_file)
                 cfg.merge_from_list(["MODEL.WEIGHT", weight_file])
                 cfg.merge_from_list(["MODEL.DEVICE", self.dev])
@@ -954,8 +954,6 @@ class GPT3Model(BaseModel):
     @classmethod
     def list_processes(cls):
         return ['gpt3_' + n for n in ['qa', 'guess', 'general']]
-
-
 # @cache.cache
 @backoff.on_exception(backoff.expo, Exception, max_tries=10)
 def codex_helper(extended_prompt):
@@ -1057,11 +1055,11 @@ class CodexModel(BaseModel):
                                replace('EXTRA_CONTEXT_HERE', extra_context)]
         else:
             raise TypeError("prompt must be a string or a list of strings")
-
+        self.query = prompt
         result = self.forward_(extended_prompt)
         if not isinstance(prompt, list):
-            result = result[0]
-
+            if not isinstance(result, str):
+                result = result[0]
         return result
 
     def forward_(self, extended_prompt):
@@ -1167,37 +1165,27 @@ class CodeLlama(CodexModel):
         return response
 
 # BERRIA
-class quantized(CodexModel):
-    name = 'quantized'
+class codeLlamaQ(CodexModel):
+    name = 'codellama_Q'
     def __init__(self, gpu_number=0):
         super().__init__(gpu_number=gpu_number)
-
-        from ctransformers import AutoModelForCausalLM
-        from transformers import AutoTokenizer
-
-        model_id_repo = config.codex.quantized_model_repo
-        model_id_file = config.codex.quantized_model_file
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
         token_id_name = config.codex.codellama_tokenizer_name
 
-        if model_id_repo.startswith('/') or token_id_name.startswith('/'):
-            assert os.path.exists(model_id_repo), \
-                f'Model path {model_id_repo} does not exist. If you use the model ID it will be downloaded automatically'
+        if token_id_name.startswith('/'):
             assert os.path.exists(token_id_name), \
                 f'Model path {token_id_name} does not exist. If you use the model ID it will be downloaded automatically'
         else:
-            assert model_id_repo in ['TheBloke/CodeLlama-34B-GGUF','TheBloke/CodeLlama-7B-GGUF','TheBloke/CodeLlama-13B-GGUF']
-            assert model_id_file in ['codellama-7b.Q2_K.gguf','codellama-13b.Q2_K.gguf','codellama-34b.Q2_K.gguf', 'codellama-34b.Q3_K_S.gguf', 'codellama-34b.Q3_K_M.gguf']
             assert token_id_name in ['codellama/CodeLlama-7b-hf', 'codellama/CodeLlama-13b-hf', 'codellama/CodeLlama-34b-hf',
                                     'codellama/CodeLlama-7b-Python-hf', 'codellama/CodeLlama-13b-Python-hf',
                                     'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
         ## Tokenizatzailearen Tokia -> Zein erabili?
+        quantization_config = BitsAndBytesConfig(llm_int8_has_fp16_weight=True, bnb_8bit_compute_dtype=torch.bfloat16, attn_implementation="flash_attention_2" , device_map='from_pretrained')
         self.tokenizer = AutoTokenizer.from_pretrained(token_id_name, max_length=15000)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
-        usage_ratio = 0.15  # If it is small, it will use more GPUs, which will allow larger batch sizes
-        leave_empty = 0.7  # If other models are using more than (1-leave_empty) of memory, do not use
-        max_memory = {}
+
         # for gpu_number in range(torch.cuda.device_count()):
         #     mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
         #     if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
@@ -1208,24 +1196,25 @@ class quantized(CodexModel):
 
         ## Modelu preentrenatuaren Tokia 
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_id_repo, 
-            model_file=model_id_file, 
-            model_type="llama", 
-            context_length=11000, 
-            max_new_tokens=3000,
-            gpu_layers=27, 
-            hf= True,
+            token_id_name, 
+            quantization_config = quantization_config,
         )
         self.model.eval()
+        self.pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
     def run_code_Quantized_llama(self, prompt):
-        # input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
-        # generated_ids = self.model.generate(input_ids.to("cpu"), max_new_tokens=128)
-        # generated_ids = generated_ids[:, input_ids.shape[-1]:]
-        # generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
-        # generated_text = [text.split('\n\n')[0] for text in generated_text]
-        from transformers import pipeline
-        pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
-        generated_text = pipe(prompt, max_new_tokens = 128)
+        input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=128)
+        generated_ids = generated_ids[:, input_ids.shape[-1]:]
+        generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
+        generated_text = [text.split('\n\n')[0] for text in generated_text]
+        # generated_text = self.pipe(prompt, max_new_tokens = 128)
+        # output = generated_text[0][0]['generated_text']
+        # text = output.split("\n\n\n")[-3:]
+        # isget_it = False
+        # for i in range(len(text)):
+        #     if text[i].__contains__(self.query) and not isget_it:
+        #         erantzuna = text[i]
+        #         isget_it = True
         return generated_text
     
     def forward_(self, extended_prompt):
@@ -1252,7 +1241,7 @@ class BLIPModel(BaseModel):
         super().__init__(gpu_number)
 
         # from lavis.models import load_model_and_preprocess
-        from transformers import Blip2Processor, Blip2ForConditionalGeneration
+        from transformers import Blip2Processor, Blip2ForConditionalGeneration, BitsAndBytesConfig
         # https://huggingface.co/models?sort=downloads&search=Salesforce%2Fblip2-
         assert blip_v2_model_type in ['blip2-flan-t5-xxl', 'blip2-flan-t5-xl', 'blip2-opt-2.7b', 'blip2-opt-6.7b',
                                       'blip2-opt-2.7b-coco', 'blip2-flan-t5-xl-coco', 'blip2-opt-6.7b-coco']
@@ -1263,10 +1252,16 @@ class BLIPModel(BaseModel):
             self.processor = Blip2Processor.from_pretrained(f"Salesforce/{blip_v2_model_type}")
             # Device_map must be sequential for manual GPU selection
             try:
+                # self.model = Blip2ForConditionalGeneration.from_pretrained(
+                #     f"Salesforce/{blip_v2_model_type}", load_in_8bit=half_precision,
+                #     torch_dtype=torch.float16 if half_precision else "auto",
+                #     device_map="sequential", max_memory=max_memory
+                # )
+                ## CAMBIOS ENEKO
+                quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,llm_int8_enable_fp32_cpu_offload=True)
                 self.model = Blip2ForConditionalGeneration.from_pretrained(
-                    f"Salesforce/{blip_v2_model_type}", load_in_8bit=half_precision,
-                    torch_dtype=torch.float16 if half_precision else "auto",
-                    device_map="sequential", max_memory=max_memory
+                    f"Salesforce/{blip_v2_model_type}", quantization_config = quantization_config, device_map="auto", 
+                    # attn_implementation="flash_attention_2"
                 )
             except Exception as e:
                 # Clarify error message. The problem is that it tries to load part of the model to disk.
