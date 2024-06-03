@@ -1,10 +1,14 @@
 import os
-os.environ['CONFIG_NAMES'] = 'config_codellama_q, benchmarks/refcoco'
-from main_simple_lib import *
+import sys
+os.environ['CONFIG_NAMES'] = 'config_codellama_q,benchmarks/refcoco'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+script_dir = os.path.abspath('/gaueko0/users/eamor002/viper')
+sys.path.append(script_dir)
+from src.main_simple_lib import *
 # from main_simple_lib import show_single_image
 # from configs import config
 # from datasets import get_dataset
-dataset_config = config.dataset
+#dataset_config = config.dataset
 
 # dataset = get_dataset(dataset_config)
 
@@ -12,9 +16,11 @@ dataset_config = config.dataset
 # show_single_image(elementua['image'])
 #import time
 
-start = time.time()
-query = 'pizza front'
-code =get_code(query)
+# start = time.time()
+# query = 'pizza front'
+# code =get_code(query)
+
+# print(code)
 
 # import torch
 # from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig

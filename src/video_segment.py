@@ -4,8 +4,8 @@ import torch
 from typing import Union, Iterator
 
 from configs import config
-from image_patch import ImagePatch
-from vision_processes import forward
+from src.image_patch import ImagePatch
+from src.vision_processes import forward
 
 
 class VideoSegment:

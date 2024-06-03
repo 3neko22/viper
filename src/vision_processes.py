@@ -18,7 +18,7 @@ console = Console(highlight=False)
 
 if mp.current_process().name == 'MainProcess':
     # No need to initialize the models inside each process
-    import vision_models
+    import src.vision_models as vision_models
     # Create a list of all the defined models
     list_models = [m[1] for m in inspect.getmembers(vision_models, inspect.isclass)
                    if issubclass(m[1], vision_models.BaseModel) and m[1] != vision_models.BaseModel]

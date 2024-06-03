@@ -21,17 +21,19 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 from configs import config
-from utils import show_single_image
+from src.utils import show_single_image
 
 from IPython.display import update_display, clear_output
 from IPython.core.display import HTML
 
+import datasets # ENEKO
+
 cache = Memory('cache/' if config.use_cache else None, verbose=0)
 
 mp.set_start_method('spawn', force=True)
-from vision_processes import forward, finish_all_consumers  # This import loads all the models. May take a while
-from image_patch import *
-from video_segment import *
+from src.vision_processes import forward, finish_all_consumers  # This import loads all the models. May take a while
+from src.image_patch import *
+from src.video_segment import *
 from datasets.my_dataset import MyDataset
 
 console = Console(highlight=False, force_terminal=False)
@@ -315,6 +317,7 @@ def execute_code(code, im, show_intermediate_steps=True):
 
     console.rule(f"[bold]Final Result[/bold]", style="chartreuse2")
     show_all(None, result, 'Result', fig=f, usefig=usefig, disp=False, console_in=console, time_wait_between_lines=0)
+    return result
 
 
 def show_single_image(im):
@@ -322,3 +325,19 @@ def show_single_image(im):
     im.copy()
     im.thumbnail((400, 400))
     display(im)
+
+
+def taking_results(dataset, code, image):
+    ground_truths_list, predictions_list= [], []
+    for i in range(dataset.max_samples):
+        query, image, ground_truth = get_items(dataset,i)
+        code = get_code(query)
+        prediction = execute_code(code, image, show_intermediate_steps=False)
+        predictions_list.append(prediction)
+        ground_truths_list.append(ground_truth)
+    performance = dataset.accuracy(prediction=predictions_list, ground_truth=ground_truths_list)
+    return performance
+
+def get_items(dataset, index):
+    element = dataset.__getitem__(index)
+    return element['query'], element['image'], element['answer']

@@ -17,7 +17,7 @@ load_models:
     glip: False
     owlvit: False
     tcl: False
-    gpt3_list: True
+    gpt3_list: True # Ez dakit noiz erabiltzen den
     gpt3_qa: True
     gpt3_guess: True
     depth: False

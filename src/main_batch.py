@@ -39,8 +39,8 @@ def my_collate(batch):
 
 
 def run_program(parameters, queues_in_, input_type_, retrying=False):
-    from image_patch import ImagePatch, llm_query, best_image_match, distance, bool_to_yesno
-    from video_segment import VideoSegment
+    from src.image_patch import ImagePatch, llm_query, best_image_match, distance, bool_to_yesno
+    from src.video_segment import VideoSegment
 
     global queue_results
 
@@ -106,9 +106,18 @@ def worker_init(queue_results_):
 
 
 def main():
+
+    ''' To run this script: "CONFIG_NAMES=your_config_name python main_batch.py"
+        Or
+        Adding this code-lines at the beginning of the function:
+
+        "   os.environ['CONFIG_NAMES'] = your_config_name
+            os.environ['CUDA_VISIBLE_DEVICES'] = '0' # For example
+            script_dir = os.path.abspath('path/to/your_project')    "
+    '''
     mp.set_start_method('spawn')
 
-    from vision_processes import queues_in, finish_all_consumers, forward, manager
+    from src.vision_processes import queues_in, finish_all_consumers, forward, manager
     from datasets import get_dataset
 
     batch_size = config.dataset.batch_size
@@ -121,6 +130,7 @@ def main():
         queue_results_main = None
         queues_results = [None for _ in range(batch_size)]
 
+    # TODO ENEKO: llama Quantized aldatu    
     model_name_codex = 'codellama' if config.codex.model == 'codellama' else 'codex'
     codex = partial(forward, model_name=model_name_codex, queues=[queues_in, queue_results_main])
 

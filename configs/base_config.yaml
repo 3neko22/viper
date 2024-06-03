@@ -1,30 +1,30 @@
 multiprocessing: False                               # Run the models and samples in parallel
-path_pretrained_models: './pretrained_models'       # Path to the pretrained models
+path_pretrained_models: ./pretrained_models       # Path to the pretrained models
 execute_code: False                                 # Execute the code after generating it. Only applies to main_batch
 
 dataset:                                            # Dataset configuration
     dataset_name: 'MyDataset'                       # Dataset name
     data_path: 'data'                               # Dataset path
     split: ''                                       # Dataset split. If '', it assumes there is only one split
-    max_samples:                                    # Maximum number of samples to load
+    max_samples: 2                                  # Maximum number of samples to load
     batch_size: 20                                  # Batch size
     start_sample: 0                                 # Start sample index. Only used if max_samples is not None
 
 load_models:                                        # Which pretrained models to load
     maskrcnn: False
     clip: False
-    glip: False # E* : Default -> True
+    glip: True # E* : Default -> True
     owlvit: False
     tcl: False
     gpt3_qa: False # E* : Default -> True
-    gpt3_general: False # E* : Default -> True
+    gpt3_general: True # E* : Default -> True
     depth: True # E* : Default -> True #MiDaS
-    blip: False # E* : Default -> True
+    blip: True # E* : Default -> True
     saliency: False
     xvlm: True # E* : Default -> True
-    codex: True
+    codex: False # E* : Default -> True
     codellama: False
-    codellama_Q: False # Añadido para Probar con Cosas Quantificadas Default : False 
+    codellama_Q: False # New model inserted
 
 detect_thresholds:                                  # Thresholds for the models that perform detection
     glip: 0.5

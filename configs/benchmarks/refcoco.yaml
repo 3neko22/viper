@@ -2,9 +2,9 @@ dataset:
   data_path: ./data/refcoco
   dataset_name: RefCOCO
   split_by: unc  # [google, unc]
-  split: testB
-  version: refcoco+
-  batch_size: 20
+  split: testA
+  version: refcoco
+  batch_size: 1
 
 codex:
   prompt: ./prompts/benchmarks/refcoco.prompt

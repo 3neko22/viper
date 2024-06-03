@@ -27,7 +27,7 @@ from torchvision import transforms
 from typing import List, Union
 
 from configs import config
-from utils import HiddenPrints
+from src.utils import HiddenPrints
 
 # with open('api.key') as f:
 #     openai.api_key = f.read().strip()
@@ -108,11 +108,11 @@ class ObjectDetector(BaseModel):
         detections['pred_boxes'] = p
         return detections
 
-
+# Change GPU_NUMBER
 class DepthEstimationModel(BaseModel):
     name = 'depth'
 
-    def __init__(self, gpu_number=0, model_type='DPT_Large'):
+    def __init__(self, gpu_number=1, model_type='DPT_Large'):
         super().__init__(gpu_number)
         with HiddenPrints('DepthEstimation'):
             warnings.simplefilter("ignore")
@@ -412,11 +412,11 @@ class OwlViTModel(BaseModel):
 
         return boxes.cpu()  # [x_min, y_min, x_max, y_max]
 
-
+# Change it
 class GLIPModel(BaseModel):
     name = 'glip'
 
-    def __init__(self, model_size='large', gpu_number=0, *args):
+    def __init__(self, model_size='large', gpu_number=2, *args):
         BaseModel.__init__(self, gpu_number)
 
         with contextlib.redirect_stderr(open(os.devnull, "w")):  # Do not print nltk_data messages when importing
@@ -1181,7 +1181,7 @@ class codeLlamaQ(CodexModel):
                                     'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
         ## Tokenizatzailearen Tokia -> Zein erabili?
-        quantization_config = BitsAndBytesConfig(llm_int8_has_fp16_weight=True, bnb_8bit_compute_dtype=torch.bfloat16, attn_implementation="flash_attention_2" , device_map='from_pretrained')
+        quantization_config = BitsAndBytesConfig(llm_int8_has_fp16_weight=True, bnb_4bit_compute_dtype=torch.bfloat16)
         self.tokenizer = AutoTokenizer.from_pretrained(token_id_name, max_length=15000)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
@@ -1198,6 +1198,8 @@ class codeLlamaQ(CodexModel):
         self.model = AutoModelForCausalLM.from_pretrained(
             token_id_name, 
             quantization_config = quantization_config,
+            #attn_implementation="flash_attention_2",
+            device_map='auto'
         )
         self.model.eval()
         self.pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
@@ -1236,7 +1238,7 @@ class BLIPModel(BaseModel):
     max_batch_size = 32
     seconds_collect_data = 0.2  # The queue has additionally the time it is executing the previous forward pass
 
-    def __init__(self, gpu_number=0, half_precision=config.blip_half_precision,
+    def __init__(self, gpu_number=1, half_precision=config.blip_half_precision,
                  blip_v2_model_type=config.blip_v2_model_type):
         super().__init__(gpu_number)
 
@@ -1392,7 +1394,7 @@ class SaliencyModel(BaseModel):
 class XVLMModel(BaseModel):
     name = 'xvlm'
 
-    def __init__(self, gpu_number=0,
+    def __init__(self, gpu_number=1,
                  path_checkpoint=f'{config.path_pretrained_models}/xvlm/retrieval_mscoco_checkpoint_9.pth'):
 
         from base_models.xvlm.xvlm import XVLMBase

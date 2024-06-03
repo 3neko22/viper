@@ -1,7 +1,1 @@
-Traceback (most recent call last):
-  File "/gaueko0/users/eamor002/viper/probak.py", line 3, in <module>
-    from main_simple_lib import *
-  File "/gaueko0/users/eamor002/viper/main_simple_lib.py", line 9, in <module>
-    from joblib import Memory
-ModuleNotFoundError: No module named 'joblib'
-srun: error: localhost: task 0: Exited with exit code 1
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [14:31<14:31, 871.89s/it]Loading checkpoint shards: 100%|██████████| 2/2 [19:28<00:00, 533.68s/it]Loading checkpoint shards: 100%|██████████| 2/2 [19:28<00:00, 584.41s/it]

@@ -11,8 +11,8 @@ from torchvision.ops import box_iou
 from typing import Union, List
 from word2number import w2n
 
-from utils import show_single_image, load_json
-from vision_processes import forward, config
+from src.utils import show_single_image, load_json
+from src.vision_processes import forward, config
 
 console = Console(highlight=False)
 
