@@ -327,7 +327,7 @@ def show_single_image(im):
     display(im)
 
 
-def taking_results(dataset, code, image):
+def taking_results(dataset):
     ground_truths_list, predictions_list= [], []
     for i in range(dataset.max_samples):
         query, image, ground_truth = get_items(dataset,i)
@@ -335,6 +335,8 @@ def taking_results(dataset, code, image):
         prediction = execute_code(code, image, show_intermediate_steps=False)
         predictions_list.append(prediction)
         ground_truths_list.append(ground_truth)
+        if config.clear_cache:
+            cache.clear()
     performance = dataset.accuracy(prediction=predictions_list, ground_truth=ground_truths_list)
     return performance
 

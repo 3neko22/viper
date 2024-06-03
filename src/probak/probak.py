@@ -1,7 +1,8 @@
 import os
 import sys
-os.environ['CONFIG_NAMES'] = 'config_codellama_q,benchmarks/refcoco'
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+os.environ['CONFIG_NAMES'] = 'llama_Q_configs/config_codellama_Q, llama_Q_configs/refcoco'
+os.environ['LOAD_MODELS'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 script_dir = os.path.abspath('/gaueko0/users/eamor002/viper')
 sys.path.append(script_dir)
 from src.main_simple_lib import *
@@ -40,8 +41,7 @@ from src.main_simple_lib import *
 # tokenizer.padding_side = 'left'
 # model = AutoModelForCausalLM.from_pretrained(
 #     'codellama/CodeLlama-7b-hf', 
-#     quantization_config = quantization_config,
-#     max_memory=5000)
+#     quantization_config = quantization_config,)
 
 # # # modelo = torch.nn.parallel(model, device_ids=[0,1],dim=0)
 # start = time.time()

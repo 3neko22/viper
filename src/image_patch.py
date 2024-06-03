@@ -484,3 +484,8 @@ def coerce_to_numeric(string, no_string=False):
         # No numeric values. Return input
         return string
     return numeric
+
+# TODO llm_query for 
+# def llm_query_Q(query, context=None, long_answer=True, queues=None):
+
+#     if

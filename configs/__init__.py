@@ -12,12 +12,18 @@ import sys
 
 # The default -> para cambiar 
 config_names = os.getenv('CONFIG_NAMES', None) # En vez del None pondriamos  -> (config_codellama, my_config) por ejemplo
+enable_models = bool(int(os.getenv('LOAD_MODELS', '0')))
 if config_names is not None:
     print("SELECTED CONFIG FILES: " + config_names)
 if config_names is None:
-    config_names = 'config_codellama_q'  # Modify this if you want to use another default config
+    config_names = 'config_codellama_Q'  # Modify this if you want to use another default config
 
-configs = [OmegaConf.load('configs/base_config.yaml')]
+if enable_models:
+    configs = [OmegaConf.load('configs/base_config.yaml')]
+    print("LOADING MODEL: ENABLED")
+else:
+    configs = [OmegaConf.load('configs/disable_models.yaml')]
+    print("LOADING MODEL: DISABLED")
 
 if config_names is not None:
     for config_name in config_names.split(','):

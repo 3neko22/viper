@@ -1182,7 +1182,7 @@ class codeLlamaQ(CodexModel):
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
         ## Tokenizatzailearen Tokia -> Zein erabili?
         quantization_config = BitsAndBytesConfig(llm_int8_has_fp16_weight=True, bnb_4bit_compute_dtype=torch.bfloat16)
-        self.tokenizer = AutoTokenizer.from_pretrained(token_id_name, max_length=15000)
+        self.tokenizer = AutoTokenizer.from_pretrained(token_id_name, max_length=10000)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
 
@@ -1238,7 +1238,7 @@ class BLIPModel(BaseModel):
     max_batch_size = 32
     seconds_collect_data = 0.2  # The queue has additionally the time it is executing the previous forward pass
 
-    def __init__(self, gpu_number=1, half_precision=config.blip_half_precision,
+    def __init__(self, gpu_number=0, half_precision=config.blip_half_precision,
                  blip_v2_model_type=config.blip_v2_model_type):
         super().__init__(gpu_number)
 
@@ -1394,7 +1394,7 @@ class SaliencyModel(BaseModel):
 class XVLMModel(BaseModel):
     name = 'xvlm'
 
-    def __init__(self, gpu_number=1,
+    def __init__(self, gpu_number=0,
                  path_checkpoint=f'{config.path_pretrained_models}/xvlm/retrieval_mscoco_checkpoint_9.pth'):
 
         from base_models.xvlm.xvlm import XVLMBase
