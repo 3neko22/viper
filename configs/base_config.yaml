@@ -1,7 +1,6 @@
-multiprocessing: False                               # Run the models and samples in parallel
+multiprocessing: False                            # Run the models and samples in parallel
 path_pretrained_models: ./pretrained_models       # Path to the pretrained models
-execute_code: False                                 # Execute the code after generating it. Only applies to main_batch
-
+execute_code: True                               # Execute the code after generating it. Only applies to main_batch
 
 dataset:                                            # Dataset configuration
     dataset_name: 'MyDataset'                       # Dataset name
@@ -58,18 +57,21 @@ codex:
     extra_context:                                  # ENEKO 
 
 # Saving and loading parameters
-save: True                                          # Save the results to a file
+save: False                                          # Save the results to a file
 save_new_results: True                              # If False, overwrite the results file
-results_dir: ./results/                             # Directory to save the results
+save_codex: False
+results_dir: ./results                              # Directory to save the results
 use_cache: True                                     # Use cache for the models that support it (now, GPT-3)
-clear_cache: True                                  # Clear stored cache
+clear_cache: True                                   # Clear stored cache
 use_cached_codex: False                             # Use previously-computed Codex results
 cached_codex_path: ''                               # Path to the csv results file from which to load Codex results
 log_every: 20                                       # Log accuracy every n batches
 wandb: False                                        # Use Weights and Biases
 
-blip_half_precision: True                           # Use 8bit (Faster but slightly less accurate) for BLIP if True
-blip_v2_model_type: blip2-flan-t5-xxl               # Which model to use for BLIP-2
+blip_half_precision: False                           # Use 8bit (Faster but slightly less accurate) for BLIP if True
+blip_v2_model_type: blip2-opt-6.7b            # Which model to use for BLIP-2
 
 use_fixed_code: False                               # Use a fixed code for all samples (do not generate with Codex)
 fixed_code_file: ./prompts/fixed_code/blip2.prompt  # Path to the fixed code file
+
+

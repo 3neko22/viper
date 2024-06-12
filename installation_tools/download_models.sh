@@ -9,6 +9,11 @@ mkdir -p $PRETRAINED_MODELS_PATH/GLIP/configs
 wget -nc -P $PRETRAINED_MODELS_PATH/GLIP/checkpoints https://huggingface.co/GLIPModel/GLIP/resolve/main/glip_large_model.pth
 wget -nc -P $PRETRAINED_MODELS_PATH/GLIP/configs https://raw.githubusercontent.com/microsoft/GLIP/main/configs/pretrain/glip_Swin_L.yaml
 
+# New Lines for GLIP model (if it is necessary to use smaller models)
+wget -nc -P $PRETRAINED_MODELS_PATH/GLIP/checkpoints https://huggingface.co/GLIPModel/GLIP/resolve/main/glip_tiny_model_o365_goldg_cc_sbu.pth
+
+
+
 # X-VLM model
 mkdir -p $PRETRAINED_MODELS_PATH/xvlm
 gdown "https://drive.google.com/u/0/uc?id=1bv6_pZOsXW53EhlwU0ZgSk03uzFI61pN" -O $PRETRAINED_MODELS_PATH/xvlm/retrieval_mscoco_checkpoint_9.pth

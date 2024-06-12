@@ -5,18 +5,22 @@ dataset:
   split: testA
   version: refcoco
   batch_size: 1
-  max_samples: 2
+  max_samples: 1
 
 codex:
   prompt: ./prompts/benchmarks/refcoco.prompt
 fixed_code_file: ./prompts/fixed_code/glip.prompt
 
-results_dir: ./results/refcoco/
-
 load_models:
   gpt3_general: False
 
+save: True
+save_codex: False
+use_cached_codex: False
+
+results_dir: ./results/refcoco/all/
+execute_code: True
+
 ratio_box_area_to_image_area: 0.03
 crop_larger_margin: False
-
 

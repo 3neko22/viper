@@ -1,27 +1,45 @@
-import os
-import sys
-os.environ['CONFIG_NAMES'] = 'llama_Q_configs/config_codellama_Q, llama_Q_configs/refcoco'
-os.environ['LOAD_MODELS'] = '0'
-os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
-script_dir = os.path.abspath('/gaueko0/users/eamor002/viper')
-sys.path.append(script_dir)
-from src.main_simple_lib import *
-# from main_simple_lib import show_single_image
-# from configs import config
-# from datasets import get_dataset
-#dataset_config = config.dataset
+# import os
+# import sys
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+# os.environ['CODEX_QUANTIZED'] = '1'
+# os.environ['LOAD_MODELS'] = '0'
+# os.environ['DATASET'] = 'refcoco'
+# os.environ['EXEC_MODE'] = 'codex'
+# script_dir = os.path.abspath('/gaueko0/users/eamor002/viper')
+# sys.path.append(script_dir)
+# from src.main_simple_lib import *
 
-# dataset = get_dataset(dataset_config)
-
-# elementua = dataset.__getitem__(0) # './data/refcoco/mscoco/train2014/COCO_train2014_000000022102.jpg'
-# show_single_image(elementua['image'])
-#import time
-
-# start = time.time()
-# query = 'pizza front'
-# code =get_code(query)
-
+# my_dataset = datasets.get_dataset(config.dataset)
+# query = my_dataset.__getitem__(0)['query']
+# #show_single_image(img)
+# code = get_code(query)
 # print(code)
+
+
+text = '\n    # Return the pizza\n    image_patch = ImagePatch(image)\n    pizza_patches = image_patch.find("pizza")\n    pizza_patches.sort(key=lambda pizza: pizza.horizontal_center)\n    pizza_patch = pizza_patches[0]\n    # Remember: return the pizza\n    return pizza_patch'
+text1 = '\n    # Return the pizza\n    image_patch = ImagePatch(image)\n    pizza_patches = image_patch.find("pizza")\n    pizza_patches.sort(key=lambda pizza: pizza.horizontal_center)\n    pizza_patch = pizza_patches[0]'
+
+textGQA = '\n   image_patch = ImagePatch(image)\n   spoon_patches = image_patch.find(""spoon"")\n   spoon_patch = spoon_patches[0]\n   cheese_patches = image_patch.find(""cheese"")\n      for cheese_patch in cheese_patches:\n           if cheese_patch.horizontal_center > spoon_patch.horizontal_center:\n                return bool_to_yesno(cheese_patch.verify_property(""cheese"", ""small and round""))' 
+def complete_code(text):
+    code = text.split('\n')
+    text_= text
+    last_line = code[-1]
+    tabulate_list = ['      return','           return','               return']
+    if 'return' in last_line:
+        for line in tabulate_list:
+            if  line in last_line:
+                text_+='\n'
+                text_+='    return None'
+                return text_
+    else:
+        text_+='\n'
+        text_+='    return None'
+        return text_
+    return text
+
+print(complete_code(text))
+print(complete_code(text1))
+print(complete_code(textGQA))
 
 # import torch
 # from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig

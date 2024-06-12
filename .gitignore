@@ -217,3 +217,16 @@ scratchwork/
 blip2_runner.py
 LAVIS/
 pretrained_models/
+/configs/slurm_configs
+/slurm_scripts
+
+
+
+*.err
+slurm_output_refcoco.txt
+slurm_output_gqa.txt
+slurm_output_okvqa.txt
+
+src/probak
+src/__pycache__
+/__pycache__

@@ -112,7 +112,7 @@ class ObjectDetector(BaseModel):
 class DepthEstimationModel(BaseModel):
     name = 'depth'
 
-    def __init__(self, gpu_number=1, model_type='DPT_Large'):
+    def __init__(self, gpu_number=1, model_type='MiDaS_small'):
         super().__init__(gpu_number)
         with HiddenPrints('DepthEstimation'):
             warnings.simplefilter("ignore")
@@ -416,13 +416,13 @@ class OwlViTModel(BaseModel):
 class GLIPModel(BaseModel):
     name = 'glip'
 
-    def __init__(self, model_size='large', gpu_number=2, *args):
+    def __init__(self, model_size='tiny', gpu_number=2, *args):
         BaseModel.__init__(self, gpu_number)
 
         with contextlib.redirect_stderr(open(os.devnull, "w")):  # Do not print nltk_data messages when importing
             from maskrcnn_benchmark.engine.predictor_glip import GLIPDemo, to_image_list, create_positive_map, \
                 create_positive_map_label_to_token_from_positive_map
-
+ 
         working_dir = f'{config.path_pretrained_models}/GLIP/'
         if model_size == 'tiny':
             config_file = working_dir + "configs/glip_Swin_T_O365_GoldG.yaml"
@@ -1204,8 +1204,9 @@ class codeLlamaQ(CodexModel):
         self.model.eval()
         self.pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
     def run_code_Quantized_llama(self, prompt):
+        from src.utils import complete_code
         input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
-        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=128)
+        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=190)
         generated_ids = generated_ids[:, input_ids.shape[-1]:]
         generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
         generated_text = [text.split('\n\n')[0] for text in generated_text]
@@ -1217,6 +1218,8 @@ class codeLlamaQ(CodexModel):
         #     if text[i].__contains__(self.query) and not isget_it:
         #         erantzuna = text[i]
         #         isget_it = True
+        generated_text = [complete_code(generated_text[0])]
+
         return generated_text
     
     def forward_(self, extended_prompt):
@@ -1262,7 +1265,7 @@ class BLIPModel(BaseModel):
                 ## CAMBIOS ENEKO
                 quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,llm_int8_enable_fp32_cpu_offload=True)
                 self.model = Blip2ForConditionalGeneration.from_pretrained(
-                    f"Salesforce/{blip_v2_model_type}", quantization_config = quantization_config, device_map="auto", 
+                    f"Salesforce/{blip_v2_model_type}", quantization_config = quantization_config, device_map="sequential", 
                     # attn_implementation="flash_attention_2"
                 )
             except Exception as e:
@@ -1309,11 +1312,12 @@ class BLIPModel(BaseModel):
         inputs = self.processor(images=image, text=question, return_tensors="pt", padding="longest").to(self.dev)
         if self.half_precision:
             inputs['pixel_values'] = inputs['pixel_values'].half()
-        generated_ids = self.model.generate(**inputs, length_penalty=-1, num_beams=5, max_length=10, min_length=1,
+        generated_ids = self.model.generate(**inputs, length_penalty=-1, num_beams=5,# max_length=10,
+                                             min_length=1,
                                             do_sample=False, top_p=0.9, repetition_penalty=1.0,
-                                            num_return_sequences=1, temperature=1)
+                                            num_return_sequences=1, temperature=1, max_new_tokens=10)
         generated_text = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
-
+        # Buscame a traves de internet informacion sobre este error en el Blip2Processor: 
         return generated_text
 
     def forward(self, image, question=None, task='caption'):

@@ -1,15 +1,15 @@
 dataset:
-    data_path: /path/to/datasets/OKVQA
+    data_path: ./data/okvqa
     dataset_name: OKVQA
     split: test
     testing: False
-    max_samples: 2
-    batch_size: 1
+    max_samples: 30
+    batch_size: 2
     start_sample: 0
 
 prompt: ./prompts/benchmarks/okvqa.prompt
 
-results_dir: ./results/okvqa/
+results_dir: ./results/okvqa/all/
 
 load_models:
     maskrcnn: False

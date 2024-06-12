@@ -3,7 +3,7 @@
 #SBATCH -D .
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem=12GB
+#SBATCH --mem=18GB
 #SBATCH --gres=gpu:1
 #SBATCH --output=slurm_output.txt
 #SBATCH --error=slurm_output.err
@@ -12,4 +12,4 @@
 
 source /gaueko0/users/eamor002/venvs/Tximista_GPT/bin/activate
 
-srun python probak/probak.py
+srun python src/probak/script_running_test.py

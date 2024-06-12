@@ -5,6 +5,4 @@ codex:
 load_models:
     codellama_Q: True
 
-
-
 # BEGIRATU PARAMETROEN ESPEZIFIKAZIOAK -> (Temperature, batch_size, ...)

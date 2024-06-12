@@ -131,7 +131,7 @@ def main():
         queues_results = [None for _ in range(batch_size)]
 
     # TODO ENEKO: llama Quantized aldatu    
-    model_name_codex = 'codellama' if config.codex.model == 'codellama' else 'codex'
+    model_name_codex = 'codellama_Q' if config.codex.model == 'codellama_Q' else 'codex'
     codex = partial(forward, model_name=model_name_codex, queues=[queues_in, queue_results_main])
 
     if config.clear_cache:
