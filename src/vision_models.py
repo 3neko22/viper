@@ -36,6 +36,8 @@ with open('api.key',"rb") as f:
     openai.api_key = f.read().decode('latin-1').strip()[2:] 
     # Adibidez : "ÿbsk-dshkjdhaeuc545kl4h5ik35" agertzen da ez dakit zergatik, beraz 2. elementutik aurrera gordetzen da
     
+# with open('access_token.key',"rb") as f:
+#     access_token = f.read().strip()
 cache = Memory('cache/' if config.use_cache else None, verbose=0)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 console = Console(highlight=False)
@@ -51,7 +53,7 @@ class BaseModel(abc.ABC):
     requires_gpu = True
     num_gpus = 2  # Number of required GPUs
     load_order = 0  # Order in which the model is loaded. Lower is first. By default, models are loaded alphabetically
-
+    
     def __init__(self, gpu_number):
         self.dev = f'cuda:{gpu_number}' if device == 'cuda' else device
 
@@ -911,7 +913,7 @@ class GPT3Model(BaseModel):
         if not self.to_batch:
             prompt = [prompt]
 
-        if process_name == 'gpt3_qa':
+        if process_name == 'qa':
             # if items in prompt are tuples, then we assume it is a question and context
             if isinstance(prompt[0], tuple) or isinstance(prompt[0], list):
                 prompt = [question.format(context) for question, context in prompt]
@@ -929,9 +931,9 @@ class GPT3Model(BaseModel):
             prompt = [prompt[i] for i in to_compute]
 
         if len(prompt) > 0:
-            if process_name == 'gpt3_qa':
+            if process_name == 'qa':
                 response = self.get_qa(prompt)
-            elif process_name == 'gpt3_guess':
+            elif process_name == 'guess':
                 response = self.process_guesses(prompt)
             else:  # 'gpt3_general', general prompt, has to be given all of it
                 response = self.get_general(prompt)
@@ -1008,12 +1010,122 @@ def codex_helper(extended_prompt):
 
     return resp
 
+# New Model created to use in llm_query() method
+class CognitionModel(BaseModel):
+    name = 'cognition'
+    to_batch = False
+    requires_gpu = True
+
+    def __init__(self, gpu_number=0):
+        super().__init__(gpu_number=gpu_number)
+        with open(config.gpt3.qa_prompt) as f:
+            self.qa_prompt = f.read().strip()
+        with open(config.gpt3.guess_prompt) as f:
+            self.guess_prompt = f.read().strip()
+
+    def forward(self, prompt, process_name=None, prompt_file=None, base_prompt=None, extra_context=None):
+        if process_name == 'qa':
+            result = self.get_qa(prompt=prompt, max_tokens=5)
+        elif process_name == 'quess':
+            result = self.get_guess(prompt=prompt, max_tokens=16) 
+        return result
+    
+    def get_qa(self, prompt, prompt_base: str = None, max_tokens = 5):
+        if prompt_base is None:
+            prompt_base = self.qa_prompt
+        prompts_total = []
+        prompts_total.append(prompt_base.format(prompt))
+        input_ids = self.tokenizer(prompts_total, return_tensors="pt", padding=True, truncation=True)
+        input_ids = input_ids["input_ids"].to("cuda")
+        generated_ids = self.model.generate(input_ids, max_new_tokens=max_tokens)
+        # generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=False)
+        # generated_text = generated_text.split('\n\n')[1]
+        generated_ids = generated_ids[:, input_ids.shape[-1]:]
+        generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
+        return generated_text[0].split('\n\n')[0]
+    
+    def get_guess(self,prompt, prompt_base:str = None, max_tokens=16):
+        if prompt_base is None:
+            prompt_base = self.guess_prompt
+        prompts_total = []
+        if len(prompt)==3:
+            question, guess1, _ = prompt
+            if len(guess1)==1:
+                guess1 = [guess1[0], guess1[0]]
+            prompts_total.append(prompt_base.format(question, guess1[0], guess1[1]))
+        else:
+            for p in prompt:
+                question, guess1 = p
+                if len(guess1) == 1:
+                    # In case only one option is given as a guess
+                    guess1 = [guess1[0], guess1[0]]
+                prompts_total.append(prompt_base.format(question, guess1[0], guess1[1]))
+        input_ids = self.tokenizer(prompts_total, return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=max_tokens)
+        generated_ids = generated_ids[:, input_ids.shape[-1]:]
+        generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
+        generated_text = generated_text.split('\n\n')[1]
+        return generated_text
+    
+# REQUIRED ACCESS_TOKEN in order to access to the model
+class Mistral(CognitionModel):
+    name = 'mistral'
+    def __init__(self, gpu_number=0):
+        super().__init__(gpu_number=gpu_number)
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        # Load Llama2
+        model_id = config.cognition.model_name
+        with open(config.cognition.access_token_file) as f:
+            self.token_access = f.read().strip()
+        if model_id.startswith('/'):
+            assert os.path.exists(model_id), \
+                f'Model path {model_id} does not exist. If you use the model ID it will be downloaded automatically'
+        else:
+            assert model_id in ['mistralai/Mistral-7B-v0.3','mistralai/Mistral-7B-v0.2']
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = 'left'
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            quantization_config = quantization_config,
+            #attn_implementation="flash_attention_2",
+            device_map='auto'
+        )
+        self.model.eval()
+# REQUIRED ACCESS_TOKEN in order to access to the model
+class Gemma(CognitionModel):
+    name = 'gemma'
+    def __init__(self, gpu_number=0):
+        super().__init__(gpu_number=gpu_number)
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+        model_id = config.cognition.model_name
+        with open(config.cognition.access_token_file) as f:
+            self.access_token = f.read().strip()
+        if model_id.startswith('/'):
+            assert os.path.exists(model_id), \
+                f'Model path {model_id} does not exist. If you use the model ID it will be downloaded automatically'
+        else:
+            assert model_id in ['google/gemma-7b']
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=self.access_token)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = 'left'
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            quantization_config = quantization_config,
+            #attn_implementation="flash_attention_2",
+            device_map='auto',
+            token=self.access_token
+        )
+        self.model.eval()
 
 class CodexModel(BaseModel):
     name = 'codex'
     requires_gpu = False
     max_batch_size = 5
-
+    
     # Not batched, but every call will probably be a batch (coming from the same process)
 
     def __init__(self, gpu_number=0):
@@ -1025,41 +1137,50 @@ class CodexModel(BaseModel):
             with open(config.fixed_code_file) as f:
                 self.fixed_code = f.read()
 
-    def forward(self, prompt, input_type='image', prompt_file=None, base_prompt=None, extra_context=None):
-        if config.use_fixed_code:  # Use the same program for every sample, like in socratic models
-            return [self.fixed_code] * len(prompt) if isinstance(prompt, list) else self.fixed_code
+    def forward(self, prompt, process_name = 'codellama_Q', input_type='image', prompt_file=None, base_prompt=None, extra_context=None):
+        if process_name == 'codellama_Q':
+            if config.use_fixed_code:  # Use the same program for every sample, like in socratic models
+                return [self.fixed_code] * len(prompt) if isinstance(prompt, list) else self.fixed_code
 
-        if prompt_file is not None and base_prompt is None:  # base_prompt takes priority
-            with open(prompt_file) as f:
-                base_prompt = f.read().strip()
-        elif base_prompt is None:
-            base_prompt = self.base_prompt
-        if isinstance(extra_context,list):
-            for i, ec in enumerate(extra_context):
-                if ec is None:
-                    extra_context[i]=""
-        elif extra_context is None:
-            extra_context = ""
-        else: 
-            with open(extra_context) as f:
-                extra_prompt = f.read().strip()
-            extra_context = extra_prompt
-        if isinstance(prompt, list):
-            extended_prompt = [base_prompt.replace("INSERT_QUERY_HERE", p).
-                               replace('INSERT_TYPE_HERE', input_type).
-                               replace('EXTRA_CONTEXT_HERE', str(ec))
-                               for p, ec in zip(prompt, extra_context)]
-        elif isinstance(prompt, str):
-            extended_prompt = [base_prompt.replace("INSERT_QUERY_HERE", prompt).
-                               replace('INSERT_TYPE_HERE', input_type).
-                               replace('EXTRA_CONTEXT_HERE', extra_context)]
-        else:
-            raise TypeError("prompt must be a string or a list of strings")
-        self.query = prompt
-        result = self.forward_(extended_prompt)
-        if not isinstance(prompt, list):
-            if not isinstance(result, str):
-                result = result[0]
+            if prompt_file is not None and base_prompt is None:  # base_prompt takes priority
+                with open(prompt_file) as f:
+                    base_prompt = f.read().strip()
+            elif base_prompt is None:
+                base_prompt = self.base_prompt
+            if isinstance(extra_context,list):
+                for i, ec in enumerate(extra_context):
+                    if ec is None:
+                        extra_context[i]=""
+            elif extra_context is None:
+                extra_context = ""
+            else: 
+                with open(extra_context) as f:
+                    extra_prompt = f.read().strip()
+                extra_context = extra_prompt
+            if isinstance(prompt, list):
+                extended_prompt = [base_prompt.replace("INSERT_QUERY_HERE", p).
+                                    replace('INSERT_TYPE_HERE', input_type).
+                                    replace('EXTRA_CONTEXT_HERE', str(ec))
+                                    for p, ec in zip(prompt, extra_context)]
+            elif isinstance(prompt, str):
+                extended_prompt = [base_prompt.replace("INSERT_QUERY_HERE", prompt).
+                                    replace('INSERT_TYPE_HERE', input_type).
+                                    replace('EXTRA_CONTEXT_HERE', extra_context)]
+            else:
+                raise TypeError("prompt must be a string or a list of strings")
+            self.query = prompt
+            result = self.forward_(extended_prompt)
+            if not isinstance(prompt, list):
+                if not isinstance(result, str):
+                    result = result[0]
+        elif process_name == 'qa':
+            with open(config.gpt3.qa_prompt) as f:
+                self.qa_prompt = f.read().strip()
+            result = self.get_qa(prompt=prompt, max_tokens=5)
+        elif process_name == 'guess':
+            with open(config.gpt3.guess_prompt) as f:
+                self.guess_prompt = f.read().strip()
+            result = self.process_guesses(prompt=prompt, max_tokens=16) 
         return result
 
     def forward_(self, extended_prompt):
@@ -1093,8 +1214,41 @@ class CodexModel(BaseModel):
             print(e)
             response = self.forward_(extended_prompt)
         return response
+    def get_qa(self,prompt, prompt_base: str = None, max_tokens=5):
+        if prompt_base is None:
+            prompt_base = self.qa_prompt
+        prompts_total = []
+        prompts_total.append(prompt_base.format(prompt))
+        input_ids = self.tokenizer(prompts_total, return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=max_tokens)
+        generated_ids = generated_ids[:, input_ids.shape[-1]:]
+        generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
 
-
+        return generated_text[0]
+    
+    def process_guesses(self ,prompt, prompt_base:str = None, max_tokens=16):
+        if prompt_base is None:
+            prompt_base = self.guess_prompt
+        prompts_total = []
+        if len(prompt)==3:
+            question, guess1, _ = prompt
+            if len(guess1)==1:
+                guess1 = [guess1[0], guess1[0]]
+            prompts_total.append(prompt_base.format(question, guess1[0], guess1[1]))
+        else:
+            for p in prompt:
+                question, guess1 = p
+                if len(guess1) == 1:
+                    # In case only one option is given as a guess
+                    guess1 = [guess1[0], guess1[0]]
+                prompts_total.append(prompt_base.format(question, guess1[0], guess1[1]))
+        input_ids = self.tokenizer(prompts_total, return_tensors="pt", padding=True, truncation=True)["input_ids"]
+        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=max_tokens)
+        generated_ids = generated_ids[:, input_ids.shape[-1]:]
+        generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
+        return generated_text[0]
+        
+        
 class CodeLlama(CodexModel):
     name = 'codellama'
     requires_gpu = True
@@ -1170,19 +1324,19 @@ class codeLlamaQ(CodexModel):
     def __init__(self, gpu_number=0):
         super().__init__(gpu_number=gpu_number)
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
-        token_id_name = config.codex.codellama_tokenizer_name
+        model_name = config.codex.model_name
 
-        if token_id_name.startswith('/'):
-            assert os.path.exists(token_id_name), \
-                f'Model path {token_id_name} does not exist. If you use the model ID it will be downloaded automatically'
+        if model_name.startswith('/'):
+            assert os.path.exists(model_name), \
+                f'Model path {model_name} does not exist. If you use the model ID it will be downloaded automatically'
         else:
-            assert token_id_name in ['codellama/CodeLlama-7b-hf', 'codellama/CodeLlama-13b-hf', 'codellama/CodeLlama-34b-hf',
+            assert model_name in ['codellama/CodeLlama-7b-hf', 'codellama/CodeLlama-13b-hf', 'codellama/CodeLlama-34b-hf',
                                     'codellama/CodeLlama-7b-Python-hf', 'codellama/CodeLlama-13b-Python-hf',
                                     'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
         ## Tokenizatzailearen Tokia -> Zein erabili?
-        quantization_config = BitsAndBytesConfig(llm_int8_has_fp16_weight=True, bnb_4bit_compute_dtype=torch.bfloat16)
-        self.tokenizer = AutoTokenizer.from_pretrained(token_id_name, max_length=10000)
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, max_length=10000)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
 
@@ -1196,17 +1350,17 @@ class codeLlamaQ(CodexModel):
 
         ## Modelu preentrenatuaren Tokia 
         self.model = AutoModelForCausalLM.from_pretrained(
-            token_id_name, 
+            model_name, 
             quantization_config = quantization_config,
             #attn_implementation="flash_attention_2",
             device_map='auto'
         )
         self.model.eval()
-        self.pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
+        # self.pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
     def run_code_Quantized_llama(self, prompt):
         from src.utils import complete_code
         input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
-        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=190)
+        generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=250)
         generated_ids = generated_ids[:, input_ids.shape[-1]:]
         generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
         generated_text = [text.split('\n\n')[0] for text in generated_text]
@@ -1218,8 +1372,6 @@ class codeLlamaQ(CodexModel):
         #     if text[i].__contains__(self.query) and not isget_it:
         #         erantzuna = text[i]
         #         isget_it = True
-        generated_text = [complete_code(generated_text[0])]
-
         return generated_text
     
     def forward_(self, extended_prompt):
@@ -1241,7 +1393,7 @@ class BLIPModel(BaseModel):
     max_batch_size = 32
     seconds_collect_data = 0.2  # The queue has additionally the time it is executing the previous forward pass
 
-    def __init__(self, gpu_number=0, half_precision=config.blip_half_precision,
+    def __init__(self, gpu_number=2, half_precision=config.blip_half_precision,
                  blip_v2_model_type=config.blip_v2_model_type):
         super().__init__(gpu_number)
 
@@ -1351,7 +1503,7 @@ class BLIPModel(BaseModel):
 class SaliencyModel(BaseModel):
     name = 'saliency'
 
-    def __init__(self, gpu_number=0,
+    def __init__(self, gpu_number=1,
                  path_checkpoint=f'{config.path_pretrained_models}/saliency_inspyrenet_plus_ultra'):
         from base_models.inspyrenet.saliency_transforms import get_transform
         from base_models.inspyrenet.InSPyReNet import InSPyReNet
@@ -1398,7 +1550,7 @@ class SaliencyModel(BaseModel):
 class XVLMModel(BaseModel):
     name = 'xvlm'
 
-    def __init__(self, gpu_number=0,
+    def __init__(self, gpu_number=2,
                  path_checkpoint=f'{config.path_pretrained_models}/xvlm/retrieval_mscoco_checkpoint_9.pth'):
 
         from base_models.xvlm.xvlm import XVLMBase

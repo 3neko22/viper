@@ -74,42 +74,42 @@ class ImagePatch:
             An int describing the position of the top border of the crop's bounding box in the original image.
 
         """
+        if not image is None:
+            if isinstance(image, Image.Image):
+                image = transforms.ToTensor()(image)
+            elif isinstance(image, np.ndarray):
+                image = torch.tensor(image).permute(1, 2, 0)
+            elif isinstance(image, torch.Tensor) and image.dtype == torch.uint8:
+                image = image / 255
 
-        if isinstance(image, Image.Image):
-            image = transforms.ToTensor()(image)
-        elif isinstance(image, np.ndarray):
-            image = torch.tensor(image).permute(1, 2, 0)
-        elif isinstance(image, torch.Tensor) and image.dtype == torch.uint8:
-            image = image / 255
+            if left is None and right is None and upper is None and lower is None:
+                self.cropped_image = image
+                self.left = 0
+                self.lower = 0
+                self.right = image.shape[2]  # width
+                self.upper = image.shape[1]  # height
+            else:
+                self.cropped_image = image[:, image.shape[1]-upper:image.shape[1]-lower, left:right]
+                self.left = left + parent_left
+                self.upper = upper + parent_lower
+                self.right = right + parent_left
+                self.lower = lower + parent_lower
 
-        if left is None and right is None and upper is None and lower is None:
-            self.cropped_image = image
-            self.left = 0
-            self.lower = 0
-            self.right = image.shape[2]  # width
-            self.upper = image.shape[1]  # height
-        else:
-            self.cropped_image = image[:, image.shape[1]-upper:image.shape[1]-lower, left:right]
-            self.left = left + parent_left
-            self.upper = upper + parent_lower
-            self.right = right + parent_left
-            self.lower = lower + parent_lower
+            self.height = self.cropped_image.shape[1]
+            self.width = self.cropped_image.shape[2]
 
-        self.height = self.cropped_image.shape[1]
-        self.width = self.cropped_image.shape[2]
+            self.cache = {}
+            self.queues = (None, None) if queues is None else queues
 
-        self.cache = {}
-        self.queues = (None, None) if queues is None else queues
+            self.parent_img_patch = parent_img_patch
 
-        self.parent_img_patch = parent_img_patch
+            self.horizontal_center = (self.left + self.right) / 2
+            self.vertical_center = (self.lower + self.upper) / 2
 
-        self.horizontal_center = (self.left + self.right) / 2
-        self.vertical_center = (self.lower + self.upper) / 2
+            if self.cropped_image.shape[1] == 0 or self.cropped_image.shape[2] == 0:
+                raise Exception("ImagePatch has no area")
 
-        if self.cropped_image.shape[1] == 0 or self.cropped_image.shape[2] == 0:
-            raise Exception("ImagePatch has no area")
-
-        self.possible_options = load_json('./useful_lists/possible_options.json')
+            self.possible_options = load_json('./useful_lists/possible_options.json')
 
     def forward(self, model_name, *args, **kwargs):
         return forward(model_name, *args, queues=self.queues, **kwargs)
@@ -420,7 +420,7 @@ def bool_to_yesno(bool_answer: bool) -> str:
     return "yes" if bool_answer else "no"
 
 
-def llm_query(query, context=None, long_answer=True, queues=None):
+def llm_query(query, context=None, long_answer=True, use_congintionModel: bool = config.cognition.is_setted, queues=None):
     """Answers a text question using GPT-3. The input question is always a formatted string with a variable in it.
 
     Parameters
@@ -428,14 +428,20 @@ def llm_query(query, context=None, long_answer=True, queues=None):
     query: str
         the text question to ask. Must not contain any reference to 'the image' or 'the photo', etc.
     """
+    # NEW ADDITION ##TODO:
+    if use_congintionModel:
+        return forward(model_name=config.cognition.model, process_name='qa', prompt=query, queues=queues)
     if long_answer:
         return forward(model_name='gpt3_general', prompt=query, queues=queues)
     else:
-        return forward(model_name='gpt3_qa', prompt=[query, context], queues=queues)
+        return forward(model_name='qa', prompt=[query, context], queues=queues)
 
 
-def process_guesses(prompt, guess1=None, guess2=None, queues=None):
-    return forward(model_name='gpt3_guess', prompt=[prompt, guess1, guess2], queues=queues)
+def process_guesses(prompt, guess1=None, guess2=None, queues=None, use_congintionModel: bool = config.cognition.is_setted):
+    if use_congintionModel:
+        return forward(model_name=config.cognition.model, process_name='guess', prompt=[prompt, guess1, guess2], queues=queues)
+    else:
+        return forward(model_name='guess', prompt=[prompt, guess1, guess2], queues=queues)
 
 
 def coerce_to_numeric(string, no_string=False):
@@ -484,8 +490,3 @@ def coerce_to_numeric(string, no_string=False):
         # No numeric values. Return input
         return string
     return numeric
-
-# TODO llm_query for 
-# def llm_query_Q(query, context=None, long_answer=True, queues=None):
-
-#     if

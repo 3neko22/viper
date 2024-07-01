@@ -13,6 +13,8 @@ load_models:                                        # Which pretrained models to
     codex: False # E* : Default -> True
     codellama: False
     codellama_Q: True # New model inserted
+    mistral: False
+    gemma: False
 
 save: False
 save_codex: True

@@ -3,13 +3,14 @@ dataset:
   dataset_name: RefCOCO
   split_by: unc  # [google, unc]
   split: testA
-  version: refcoco
-  batch_size: 1
-  max_samples: 1
+  version: refcoco+
+  batch_size: 5 # set to number 3 
+  max_samples:
 
 codex:
   prompt: ./prompts/benchmarks/refcoco.prompt
-fixed_code_file: ./prompts/fixed_code/glip.prompt
+
+results_dir: ./results/refcoco/all/
 
 load_models:
   gpt3_general: False
@@ -17,10 +18,8 @@ load_models:
 save: True
 save_codex: False
 use_cached_codex: False
-
-results_dir: ./results/refcoco/all/
 execute_code: True
 
-ratio_box_area_to_image_area: 0.03
-crop_larger_margin: False
+fixed_code_file: ./prompts/fixed_code/glip.prompt
+
 

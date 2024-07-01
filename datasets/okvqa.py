@@ -163,7 +163,8 @@ class OKVQADataset(Dataset):
         return image_path
 
     def get_index_from_sample_id(self, sample_id):
-        return self.df[self.df["sample_id"] == sample_id].index[0]
+        return self.df[self.df["question_id"] == sample_id].index[0]
+        # return self.df[self.df["sample_id"] == sample_id].index[0]
 
     def __getitem__(self, index):
         # image input

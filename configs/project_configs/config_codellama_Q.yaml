@@ -1,7 +1,10 @@
 codex:
     model: codellama_Q
-    codellama_tokenizer_name: 'codellama/CodeLlama-7b-hf' 
+    model_name: 'codellama/CodeLlama-7b-hf' 
     prompt: ./prompts/api_no_video.prompt
+cognition:
+    model: codellama_Q
+    is_setted: True
 load_models:
     codellama_Q: True
 

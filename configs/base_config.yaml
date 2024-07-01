@@ -16,8 +16,9 @@ load_models:                                        # Which pretrained models to
     glip: True # E* : Default -> True
     owlvit: False
     tcl: False
-    gpt3_qa: False # E* : Default -> True
+    qa: False # E* : Default -> True
     gpt3_general: True # E* : Default -> True
+    guess: False
     depth: True # E* : Default -> True #MiDaS
     blip: True # E* : Default -> True
     saliency: False
@@ -25,6 +26,8 @@ load_models:                                        # Which pretrained models to
     codex: False # E* : Default -> True
     codellama: False
     codellama_Q: False # New model inserted
+    mistral: False # New model inserted
+    gemma: False
 
 detect_thresholds:                                  # Thresholds for the models that perform detection
     glip: 0.5
@@ -55,6 +58,9 @@ codex:
     prompt: ./prompts/chatapi.prompt                # Codex prompt file, which defines the API. (doesn't support video for now due to token limits)
     model: gpt-3.5-turbo                            # Codex model to use. [code-davinci-002, gpt-3.5-turbo, gpt-4]. See openai.Model.list() for available models
     extra_context:                                  # ENEKO 
+
+cognition: 
+    is_setted: False
 
 # Saving and loading parameters
 save: False                                          # Save the results to a file

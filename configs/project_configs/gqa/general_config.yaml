@@ -3,11 +3,11 @@ dataset:
     dataset_name: GQA
     split: testdev
     testing: False
-    max_samples: 100
-    batch_size: 2
+    max_samples: 
+    batch_size: 6 #for testdev set number 2
     start_sample: 0
-
-prompt : ./prompts/benchmarks/gqa.prompt
+codex:
+    prompt : ./prompts/benchmarks/gqa.prompt
 results_dir: ./results/gqa/all/
 fixed_code_file: ./prompts/fixed_code/blip2.prompt
 
@@ -17,9 +17,9 @@ load_models:
     glip: True
     owlvit: False
     tcl: False
-    gpt3_list: False
-    gpt3_qa: False
-    gpt3_guess: False
+    gpt3_list: False 
+    qa: False
+    guess: False
     depth: False
     blip: True
     saliency: False

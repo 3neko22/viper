@@ -142,7 +142,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-data/
+/data/
 
 # Spyder project settings
 .spyderproject
@@ -220,13 +220,17 @@ pretrained_models/
 /configs/slurm_configs
 /slurm_scripts
 
-
+execute_script.sh
+src/main_script.py
 
 *.err
 slurm_output_refcoco.txt
 slurm_output_gqa.txt
 slurm_output_okvqa.txt
 
+execute_script.sh
+
+access_tokens/
 src/probak
 src/__pycache__
 /__pycache__
