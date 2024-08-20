@@ -4,8 +4,8 @@ dataset:
   split_by: unc  # [google, unc]
   split: testA
   version: refcoco+
-  batch_size: 5 # set to number 3 
-  max_samples:
+  batch_size: 2 # set to number 3 
+  max_samples: 
 
 codex:
   prompt: ./prompts/benchmarks/refcoco.prompt

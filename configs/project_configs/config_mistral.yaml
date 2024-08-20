@@ -5,3 +5,4 @@ cognition:
     is_setted: True
 load_models:
     mistral: True
+    gemma: False

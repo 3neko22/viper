@@ -246,12 +246,13 @@ class OKVQADataset(Dataset):
             return 0
         assert len(prediction) == len(ground_truth)
         score = 0
+        score_vector = []
         for p, g in zip(prediction, ground_truth):
             # There are 10 answers per question (10 annotators), most of them are the same
             item_score = self.get_item_score(p, g)
             score += item_score
-
-        return score / len(prediction)
+            score_vector.append(item_score) # 
+        return score / len(prediction), score_vector
 
     def get_item_score(self, p, g):
         g = [self.post_process(g_, stem=False) for g_ in g]

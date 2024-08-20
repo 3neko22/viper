@@ -222,3 +222,34 @@ def complete_code(text):
         text_+='    return None'
         return text_
     return text
+
+def syntax_error_accuraccy(filename, syntax_error_size, dataset_size):
+    data_frame = pd.read_csv(filename)
+    last_result = data_frame.iloc[-1,:]
+    real_IoU = None
+    if "version" in data_frame.columns() or 'IoU' in data_frame.columns():
+        IoU_total = last_result['IoU']
+        real_IoU = IoU_total/(dataset_size - syntax_error_size)
+    accuracy_total = last_result["accuracy"]
+    real_accuracy = accuracy_total*dataset_size/(dataset_size - syntax_error_size)
+    return (real_accuracy, real_IoU)
+
+def repair_csv(dataFrame, results_dir, filename):
+    total_accuracy= dataFrame.iloc[-2][0]
+    total_Iou = dataFrame.iloc[-3][0]
+    dataFrame.drop([0], axis=1, inplace=True)
+    dataFrame.dropna(subset=['sample_id'], inplace=True)
+    if 'IoU' in dataFrame.columns:
+        global_score_line = {'sample_id':[0.0],'query': [0.0] , 'Answer': [0.0], 'image_path':[0.0], 'truth_answers':[0.0], 'code': [0.0], 'split':[0.0], 'IoU': total_Iou, 'accuracy': total_accuracy}
+    else:
+        global_score_line = {'sample_id':[0.0],'query': [0.0] , 'Answer': [0.0], 'image_path':[0.0], 'truth_answers':[0.0], 'code': [0.0], 'split':[0.0], 'accuracy': total_accuracy}
+
+    new_df = pd.DataFrame(global_score_line)
+    df = pd.concat([dataFrame, new_df], ignore_index=True)
+    df.to_csv(results_dir / filename, header=True, index=False, encoding='utf-8')
+    print("Kept succesfully")
+
+def print_all_data(data):
+    for i in range(len(data)):
+        print(f'{i}.) tamaina :{len(data[i])}')
+        

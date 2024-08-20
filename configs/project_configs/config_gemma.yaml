@@ -1,7 +1,8 @@
 cognition: 
     model: gemma # Mistral/gemma/codellama_Q (Remember to set True in "load_models" section)
-    model_name: 'google/gemma-7B'
+    model_name: 'google/gemma-7b'
     access_token_file: 'access_tokens/gemma_access_token.key'
     is_setted: True
 load_models:
     gemma: True
+    mistral: False

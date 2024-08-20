@@ -16,7 +16,7 @@ load_models:                                        # Which pretrained models to
     glip: True # E* : Default -> True
     owlvit: False
     tcl: False
-    qa: False # E* : Default -> True
+    qa: True # E* : Default -> True
     gpt3_general: True # E* : Default -> True
     guess: False
     depth: True # E* : Default -> True #MiDaS
@@ -27,7 +27,8 @@ load_models:                                        # Which pretrained models to
     codellama: False
     codellama_Q: False # New model inserted
     mistral: False # New model inserted
-    gemma: False
+    gemma: False # New model inserted
+    llama3: False # New model inserted
 
 detect_thresholds:                                  # Thresholds for the models that perform detection
     glip: 0.5

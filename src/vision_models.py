@@ -3,7 +3,7 @@ Adding a new functionality is easy. Just implement your new model as a subclass 
 The code will make the rest: it will make it available for the processes to call by using
 process(name, *args, **kwargs), where *args and **kwargs are the arguments of the models process() method.
 """
-
+from __future__ import annotations
 import abc
 import backoff
 import contextlib
@@ -14,6 +14,7 @@ import timeit
 import torch
 import torchvision
 import warnings
+
 from PIL import Image
 from collections import Counter
 from contextlib import redirect_stdout
@@ -240,7 +241,7 @@ class CLIPModel(BaseModel):
     @torch.no_grad()
     def classify(self, image: Union[torch.Tensor, list], categories: list[str], return_index=True):
         is_list = isinstance(image, list)
-        if is_list:
+        if is_list: 
             assert len(image) == len(categories)
             image = [self.transform(x).unsqueeze(0) for x in image]
             image_clip = torch.cat(image, dim=0).to(self.dev)
@@ -1024,10 +1025,11 @@ class CognitionModel(BaseModel):
             self.guess_prompt = f.read().strip()
 
     def forward(self, prompt, process_name=None, prompt_file=None, base_prompt=None, extra_context=None):
+        result = None
         if process_name == 'qa':
-            result = self.get_qa(prompt=prompt, max_tokens=5)
-        elif process_name == 'quess':
-            result = self.get_guess(prompt=prompt, max_tokens=16) 
+            result = self.get_qa(prompt=prompt)
+        elif process_name == 'guess':
+            result = self.get_guess(prompt=prompt) 
         return result
     
     def get_qa(self, prompt, prompt_base: str = None, max_tokens = 5):
@@ -1064,7 +1066,7 @@ class CognitionModel(BaseModel):
         generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=max_tokens)
         generated_ids = generated_ids[:, input_ids.shape[-1]:]
         generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
-        generated_text = generated_text.split('\n\n')[1]
+        generated_text = generated_text[0].split('\n2')[0]
         return generated_text
     
 # REQUIRED ACCESS_TOKEN in order to access to the model
@@ -1081,7 +1083,7 @@ class Mistral(CognitionModel):
             assert os.path.exists(model_id), \
                 f'Model path {model_id} does not exist. If you use the model ID it will be downloaded automatically'
         else:
-            assert model_id in ['mistralai/Mistral-7B-v0.3','mistralai/Mistral-7B-v0.2']
+            assert model_id in ['mistralai/Mistral-7B-v0.3','mistralai/Mistral-7B-v0.2', 'mistralai/Mistral-7B-Instruct-v0.3']
         quantization_config = BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -1120,6 +1122,34 @@ class Gemma(CognitionModel):
             token=self.access_token
         )
         self.model.eval()
+# REQUIRED ACCESS_TOKEN in order to access to the model
+class llama3(CognitionModel):
+    name = 'llama3'
+    def __init__(self, gpu_number=0):
+        super().__init__(gpu_number=gpu_number)
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+        model_id = config.cognition.model_name
+        with open(config.cognition.access_token_file) as f:
+            self.access_token = f.read().strip()
+        if model_id.startswith('/'):
+            assert os.path.exists(model_id), \
+                f'Model path {model_id} does not exist. If you use the model ID it will be downloaded automatically'
+        else:
+            assert model_id in ['meta-llama/Meta-Llama-3-8B']
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=self.access_token)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = 'left'
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            quantization_config = quantization_config,
+            #attn_implementation="flash_attention_2",
+            device_map='auto',
+            token=self.access_token
+        )
+        self.model.eval()
+
 
 class CodexModel(BaseModel):
     name = 'codex'

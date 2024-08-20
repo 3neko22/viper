@@ -20,16 +20,18 @@ from tqdm import tqdm
 
 import sys
 import torch
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
-# os.environ['CODEX_QUANTIZED'] = '1'
-# os.environ['LOAD_MODELS'] = '0'
-# os.environ['DATASET'] = 'okvqa'
-# os.environ['EXEC_MODE'] = 'codex'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+os.environ['CODEX_QUANTIZED'] = '1'
+os.environ['LOAD_MODELS'] = '1'
+os.environ['DATASET'] = 'okvqa'
+os.environ['EXEC_MODE'] = 'cache'
+os.environ['COGNITION_MODEL'] = 'config_mistral'
+
 script_dir = os.path.abspath('/gaueko0/users/eamor002/viper')
 sys.path.append(script_dir)
 
 from configs import config
-from src.utils import seed_everything
+from src.utils import seed_everything, print_all_data, repair_csv
 import datasets
 # See https://github.com/pytorch/pytorch/issues/11201, https://github.com/pytorch/pytorch/issues/973
 # Not for dataloader, but for multiprocessing batches
@@ -48,11 +50,12 @@ def my_collate(batch):
     return to_return
 
 
-def run_program(parameters, queues_in_, input_type_, retrying=False):
+def run_program(parameters, queues_in_, input_type_, retrying=True):
     from src.image_patch import ImagePatch, llm_query, best_image_match, distance, bool_to_yesno, process_guesses
     from src.video_segment import VideoSegment
 
     global queue_results
+    syntax_error = 0
 
     code, sample_id, image, possible_answers, query = parameters
 
@@ -67,14 +70,17 @@ def run_program(parameters, queues_in_, input_type_, retrying=False):
         exec(compile(code, 'Codex', 'exec'), globals())
     except Exception as e:
         print(f'Sample {sample_id} failed at compilation time with error: {e}')
+        syntax_error = 1
         try:
             with open(config.fixed_code_file, 'r') as f:
                 fixed_code = f.read()
             code = code_header + fixed_code 
             exec(compile(code, 'Codex', 'exec'), globals())
+            syntax_error = 0
         except Exception as e2:
+            syntax_error = 1
             print(f'Not even the fixed code worked. Sample {sample_id} failed at compilation time with error: {e2}')
-            return None, code
+            return None, code, syntax_error
 
     queues = [queues_in_, queue_results]
 
@@ -93,8 +99,9 @@ def run_program(parameters, queues_in_, input_type_, retrying=False):
     except Exception as e:
         # print full traceback
         traceback.print_exc()
+        syntax_error = 1
         if retrying:
-            return None, code
+            return None, code, syntax_error
         print(f'Sample {sample_id} failed with error: {e}. Next you will see an "expected an indented block" error. ')
         # Retry again with fixed code
         new_code = "["  # This code will break upon execution, and it will be caught by the except clause
@@ -106,7 +113,7 @@ def run_program(parameters, queues_in_, input_type_, retrying=False):
     # libraries for some reason. Because defining it globally is not ideal, we just delete it after running it.
     if f'execute_command_{sample_id}' in globals():
         del globals()[f'execute_command_{sample_id}']  # If it failed to compile the code, it won't be defined
-    return result, code
+    return result, code, syntax_error
 
 
 def worker_init(queue_results_):
@@ -155,29 +162,38 @@ def save_results(all_data,dataset):
                                                 str.isnumeric(ef.stem.split('_')[-1])]) + 1) + '.csv'
         print('Saving results to', filename)
         
-        all_accuracies = ['-' for _ in range(dataset.__len__())] #  all columns empty score_result (IoUs' AVG and accuracy)
         if config.dataset.dataset_name == 'RefCOCO':
-            all_sample_ids, all_queries, all_results, all_img_paths, all_images, all_truth_answers, all_codes, all_IoUs, score_result = all_data
+            print_all_data(all_data)
+            all_sample_ids, all_queries, all_results, all_img_paths, all_truth_answers, all_codes, all_IoUs, acc_vector, score_result, is_syntax_error = all_data
             all_versions = [config.dataset.version for _ in range(dataset.__len__())]
             all_splits = [str(f'{config.dataset.split} by {config.dataset.split_by}') for _ in range(dataset.__len__())]
-            data = [all_sample_ids, all_queries, all_results, all_img_paths, all_truth_answers,all_codes, all_images, 
-                    all_splits,all_versions,all_IoUs, all_accuracies]
-            columns = ['sample_id','query', 'Answer', 'image_path', 'truth_answers', 'code',' image', 'split','version', 'IoU', 'accuracy']
-            global_score_line = {'sample_id':'-','query': '-' , 'Answer': '-', 'image_path':'-', 'truth_answers':'-', 'code': '-',' image': '-', 'split':'-', 'version':'-', 'IoU': score_result[0], 'accuracy': score_result[1]}
+            data = [all_sample_ids, all_queries, all_results, all_img_paths, all_truth_answers,all_codes, 
+                    all_splits,all_versions,all_IoUs, acc_vector, is_syntax_error]
+            # data = {'sample_id':all_sample_ids,'query': all_queries , 'Answer': all_results, 'image_path': all_img_paths, 'truth_answers':all_truth_answers, 'code': all_codes, 'split':all_splits, 'version':all_versions, 'IoU': all_IoUs, 'accuracy': acc_vector}
+            columns = ['sample_id','query', 'Answer', 'image_path', 'truth_answers', 'code', 'split','version', 'IoU', 'accuracy', 'is_syntax_error']
+            global_score_line = {'sample_id':[0.0],'query': [0.0] , 'Answer': [0.0], 'image_path':[0.0], 'truth_answers':[0.0], 'code': [0.0], 'split':[0.0], 'version':[0.0], 'IoU': score_result[0], 'accuracy': score_result[1], 'is_syntax_error': [0.0]}
+            df = pd.DataFrame(data).T
+            df.columns = columns
+            df['Answer'] = df['Answer'].apply(str) # some answers can be numbers
+            last_line = pd.Series(global_score_line)
+            df = pd.concat([df, last_line], ignore_index=True)
+            print(df.columns)
+            repair_csv(df,results_dir=results_dir, filename=filename)
         else:
-            all_sample_ids, all_queries, all_results, all_img_paths, all_images, all_truth_answers, all_codes, score_result = all_data
+            all_sample_ids, all_queries, all_results, all_img_paths, all_truth_answers, all_codes, acc_vector, score_result, is_syntax_error = all_data
             all_splits = [config.dataset.split for _ in range(dataset.__len__())]
-            data = [all_sample_ids, all_queries, all_results, all_img_paths, all_truth_answers,all_codes, all_images, 
-                    all_splits, all_accuracies]
-            columns =  ['sample_id','query', 'Answer', 'image_path', 'truth_answers', 'code',' image', 'split', 'accuracy']
-            global_score_line = {'sample_id':'-','query': '-' , 'Answer': '-', 'image_path':'-', 'truth_answers':'-', 'code': '-',' image': '-', 'split':'-', 'accuracy': score_result}
-        
-        df = pd.DataFrame(data).T
-        df.columns = columns
-        df['Answer'] = df['Answer'].apply(str) # some answers can be numbers
-        last_line = pd.Series(global_score_line)
-        df = pd.concat([df, last_line], ignore_index=True)
-        df.to_csv(results_dir / filename, header=True, index=False, encoding='utf-8')
+            # data = [all_sample_ids, all_queries, all_results, all_img_paths, all_truth_answers,all_codes, 
+            #         all_splits, all_accuracies]
+            data = {'sample_id': all_sample_ids ,'query': all_queries, 'Answer': all_results, 'image_path': all_img_paths, 'truth_answers': all_truth_answers, 'code': all_codes, 'split': all_splits, 'accuracy': acc_vector, 'is_syntax_error': is_syntax_error}
+            columns =  ['sample_id','query', 'Answer', 'image_path', 'truth_answers', 'code', 'split', 'accuracy', 'is_syntax_error']
+            #global_score_line = {'sample_id':'-','query': '-' , 'Answer': '-', 'image_path':'-', 'truth_answers':'-', 'code': '-', 'split':'-', 'accuracy': score_result}
+            global_score_line = {'sample_id':[0.0],'query': [0.0] , 'Answer': [0.0], 'image_path':[0.0], 'truth_answers':[0.0], 'code': [0.0], 'split':[0.0], 'accuracy': score_result, 'is_syntax_error': [0.0]}        
+            df = pd.DataFrame(data)
+            #df.columns = columns
+            df['Answer'] = df['Answer'].apply(str) # some answers can be numbers
+            last_line = pd.DataFrame(global_score_line)
+            df = pd.concat([df, last_line], ignore_index=True)
+            df.to_csv(results_dir / filename, header=True, index=False, encoding='utf-8')
 
 def main():
 
@@ -249,6 +265,8 @@ def main():
     all_images = []
     all_IoUs = []
     max_memory_usage = 0.0
+    syntax_error_counter = 0
+    is_syntax_error =[]
     with mp.Pool(processes=num_processes, initializer=worker_init, initargs=(queues_results,)) \
             if config.multiprocessing else open(os.devnull, "w") as pool:
         try:
@@ -272,7 +290,11 @@ def main():
                         results = []
                         for c, sample_id, img, possible_answers, query in \
                                 zip(codes, batch['sample_id'], batch['image'], batch['possible_answers'], batch['query']):
-                            result = run_program([c, sample_id, img, possible_answers, query], queues_in, input_type)
+                            result= run_program([c, sample_id, img, possible_answers, query], queues_in, input_type)
+                            result_ = (result[0], result[1])
+                            syntax_error_counter += result[2]
+                            is_syntax_error.append(result[2])
+                            result = result_
                             results.append(result)
                     else:
                         results = list(pool.imap(partial(
@@ -293,15 +315,14 @@ def main():
                 all_query_types += batch['query_type']
                 all_queries += batch['query']
                 all_img_paths += [dataset.get_sample_path(idx) for idx in batch['index']]
-                all_images.append(batch['image']) 
+                #all_images.append(batch['image']) 
                 
                 if i % config.log_every == 0:
                     try:
                         if config.dataset.dataset_name=='RefCOCO':
-                            accuracy, IoUs = dataset.accuracy(prediction=all_results, ground_truth=all_answers)
-                            all_IoUs += IoUs
+                            accuracy, _ , _ = dataset.accuracy(prediction=all_results, ground_truth=all_answers)
                         else:
-                            accuracy = dataset.accuracy(prediction=all_results, ground_truth=all_answers)
+                            accuracy, _ = dataset.accuracy(prediction=all_results, ground_truth=all_answers)
                         console.print(f'Accuracy at Batch {i}/{n_batches}: {accuracy}')
                     except Exception as e:
                         console.print(f'Error computing accuracy: {e}')
@@ -313,9 +334,9 @@ def main():
 
     try:
         if config.dataset.dataset_name!='RefCOCO':
-            accuracy = dataset.accuracy(all_results, all_answers, all_possible_answers, all_query_types)
+            accuracy, score_vector= dataset.accuracy(all_results, all_answers, all_possible_answers, all_query_types)
         else:
-            accuracy, all_IoUs = dataset.accuracy(all_results, all_answers, all_possible_answers, all_query_types)
+            accuracy, all_IoUs, score_vector = dataset.accuracy(all_results, all_answers, all_possible_answers, all_query_types)
         console.print(f'Final accuracy: {accuracy}')
     except Exception as e:
         print(f'Error computing accuracy: {e}')
@@ -324,14 +345,15 @@ def main():
         all_data = [all_sample_ids, all_queries, all_codes]
     elif config.save:
         if config.dataset.dataset_name!='RefCOCO':
-            all_data = [all_sample_ids, all_queries, all_results, all_img_paths, all_images, all_answers, all_codes, accuracy]
+            all_data = [all_sample_ids, all_queries, all_results, all_img_paths, all_answers, all_codes,score_vector, accuracy, is_syntax_error]
         else:
-            all_data = [all_sample_ids, all_queries, all_results, all_img_paths, all_images, all_answers, all_codes,all_IoUs, accuracy]
+            all_data = [all_sample_ids, all_queries, all_results, all_img_paths, all_answers, all_codes, all_IoUs, score_vector, accuracy, is_syntax_error]
+    print(f'syntax_error counter:{syntax_error_counter}/{dataset.__len__()}')
     save_results(all_data, dataset)
     #     if config.wandb:
     #         wandb.log({'accuracy': accuracy})
     #         wandb.log({'results': wandb.Table(dataframe=df, allow_mixed_types=True)})
-
+    
     finish_all_consumers()
 
 

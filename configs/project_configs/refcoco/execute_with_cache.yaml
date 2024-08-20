@@ -1,2 +1,2 @@
 use_cached_codex: True
-cached_codex_path: './results/refcoco/codex_results/testA/codex_results_all_samples.csv'
+cached_codex_path: './results/refcoco+/codex_results/testA/codex_results_all_samples.csv'

@@ -35,8 +35,13 @@ if isquantized:
                 elif execution_mode == 'codex':
                     config_names.insert(0,'config_codellama_Q')
                     config_names.append(dataset_name + '/'+ 'save_codex')
-                elif not execution_mode in [None, 'cache', 'codex']:
+                elif execution_mode not in ['cache','codex']:
                     raise NameError(f'Value from $EXEC_MODE variable is incorrect, obtained: {execution_mode} and must be: cache or codex')
+            else:
+                if cognition_models is not None:
+                    config_names.insert(0, cognition_models)
+                else:
+                    config_names.insert(0,'config_codellama_Q')
             config_names_=','.join(config_names)
             config_names = config_names_
         else: 
