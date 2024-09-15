@@ -119,7 +119,7 @@ The `multiprocessing` parameter refers to *both* the batch (every sample is run 
 The code can be run using the following command:
 
 ```bash
-CONFIG_NAMES=your_config_name python main_batch.py
+CODEX_QUANTIZED=0 CONFIG_NAMES=your_config_name python main_batch.py
 ```
 
 `CONFIG_NAMES` is an environment variable that specifies the configuration files to use.
@@ -127,6 +127,13 @@ CONFIG_NAMES=your_config_name python main_batch.py
 If you want to run the code using multiprocessing, set `multiprocessing: True` in the config file.
 
 It is especially important to consider the risks of executing arbitrary code when running in a batch; in particular, if you modify the API or any inputs to Codex, be mindful to not include potentially damaging abilities such as file modification/deletion.
+
+### New Version added
+In order to use the modification from this project, the code can be run using the following command:
+```bash
+CODEX_QUANTIZED=1 DATASET="refcoco" EXEC_MODE="cache" LOAD_MODELS=1 COGNITION_MODEL=0 python src/main_project.py
+```
+Datasets configuration are divided in order to execute code easily. Each dataset has three `.yaml` files: `general_config`, using for codex and program execution; `execute_with_cache`, execute the code which is saved in .csv and codex inference is not used (`EXEC_MODE=cache`); `save_codex`(`EXEC_MODE=Codex`), only for generating code process. The case of using all framework, `EXEC_MODE` is not necessary to be setted and `general_config` file is setted for that purpose.
 
 ## Code structure
 

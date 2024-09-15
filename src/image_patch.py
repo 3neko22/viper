@@ -428,7 +428,7 @@ def llm_query(query, context=None, long_answer=True, use_congintionModel: bool =
     query: str
         the text question to ask. Must not contain any reference to 'the image' or 'the photo', etc.
     """
-    # NEW ADDITION ##TODO:
+    # New addition:
     if use_congintionModel:
         return forward(model_name=config.cognition.model, process_name='qa', prompt=query, queues=queues)
     if long_answer:
@@ -438,6 +438,7 @@ def llm_query(query, context=None, long_answer=True, use_congintionModel: bool =
 
 
 def process_guesses(prompt, guess1=None, guess2=None, queues=None, use_congintionModel: bool = config.cognition.is_setted):
+    # New addition
     if use_congintionModel:
         return forward(model_name=config.cognition.model, process_name='guess', prompt=[prompt, guess1, guess2], queues=queues)
     else:

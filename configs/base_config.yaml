@@ -1,6 +1,6 @@
 multiprocessing: False                            # Run the models and samples in parallel
 path_pretrained_models: ./pretrained_models       # Path to the pretrained models
-execute_code: True                               # Execute the code after generating it. Only applies to main_batch
+execute_code: True                                # Execute the code after generating it. Only applies to main_batch
 
 dataset:                                            # Dataset configuration
     dataset_name: 'MyDataset'                       # Dataset name
@@ -58,9 +58,9 @@ codex:
     max_tokens: 512                                 # Maximum number of tokens to generate for Codex
     prompt: ./prompts/chatapi.prompt                # Codex prompt file, which defines the API. (doesn't support video for now due to token limits)
     model: gpt-3.5-turbo                            # Codex model to use. [code-davinci-002, gpt-3.5-turbo, gpt-4]. See openai.Model.list() for available models
-    extra_context:                                  # ENEKO 
+    extra_context:                                  # New addition
 
-cognition: 
+cognition:                                          
     is_setted: False
 
 # Saving and loading parameters

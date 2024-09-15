@@ -1011,7 +1011,7 @@ def codex_helper(extended_prompt):
 
     return resp
 
-# New Model created to use in llm_query() method
+# New Model created to use in llm_query() and process_guesses() methods
 class CognitionModel(BaseModel):
     name = 'cognition'
     to_batch = False
@@ -1075,7 +1075,7 @@ class Mistral(CognitionModel):
     def __init__(self, gpu_number=0):
         super().__init__(gpu_number=gpu_number)
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-        # Load Llama2
+
         model_id = config.cognition.model_name
         with open(config.cognition.access_token_file) as f:
             self.token_access = f.read().strip()
@@ -1168,6 +1168,7 @@ class CodexModel(BaseModel):
                 self.fixed_code = f.read()
 
     def forward(self, prompt, process_name = 'codellama_Q', input_type='image', prompt_file=None, base_prompt=None, extra_context=None):
+        # This clause is for Code LLama 
         if process_name == 'codellama_Q':
             if config.use_fixed_code:  # Use the same program for every sample, like in socratic models
                 return [self.fixed_code] * len(prompt) if isinstance(prompt, list) else self.fixed_code
@@ -1203,10 +1204,12 @@ class CodexModel(BaseModel):
             if not isinstance(prompt, list):
                 if not isinstance(result, str):
                     result = result[0]
+        # In order to use codeLLama in llm_query() method
         elif process_name == 'qa':
             with open(config.gpt3.qa_prompt) as f:
                 self.qa_prompt = f.read().strip()
             result = self.get_qa(prompt=prompt, max_tokens=5)
+        # In order to use codeLLama in process_guesses() method
         elif process_name == 'guess':
             with open(config.gpt3.guess_prompt) as f:
                 self.guess_prompt = f.read().strip()
@@ -1244,6 +1247,8 @@ class CodexModel(BaseModel):
             print(e)
             response = self.forward_(extended_prompt)
         return response
+    
+    # Using in llm_query()
     def get_qa(self,prompt, prompt_base: str = None, max_tokens=5):
         if prompt_base is None:
             prompt_base = self.qa_prompt
@@ -1255,7 +1260,7 @@ class CodexModel(BaseModel):
         generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
 
         return generated_text[0]
-    
+    # Using in process_guesses()
     def process_guesses(self ,prompt, prompt_base:str = None, max_tokens=16):
         if prompt_base is None:
             prompt_base = self.guess_prompt
@@ -1278,7 +1283,7 @@ class CodexModel(BaseModel):
         generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
         return generated_text[0]
         
-        
+# Code LLama without quantization
 class CodeLlama(CodexModel):
     name = 'codellama'
     requires_gpu = True
@@ -1327,7 +1332,7 @@ class CodeLlama(CodexModel):
             max_memory=max_memory,
         )
         self.model.eval()
-
+    # Code LLama inference
     def run_codellama(self, prompt):
         input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
         generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=128)
@@ -1348,7 +1353,7 @@ class CodeLlama(CodexModel):
         torch.cuda.empty_cache()
         return response
 
-# BERRIA
+# Code LLama quantized
 class codeLlamaQ(CodexModel):
     name = 'codellama_Q'
     def __init__(self, gpu_number=0):
@@ -1364,21 +1369,12 @@ class codeLlamaQ(CodexModel):
                                     'codellama/CodeLlama-7b-Python-hf', 'codellama/CodeLlama-13b-Python-hf',
                                     'codellama/CodeLlama-34b-Python-hf', 'codellama/CodeLlama-7b-Instruct-hf',
                                     'codellama/CodeLlama-13b-Instruct-hf', 'codellama/CodeLlama-34b-Instruct-hf']
-        ## Tokenizatzailearen Tokia -> Zein erabili?
         quantization_config = BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.float16)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, max_length=10000)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'left'
 
-        # for gpu_number in range(torch.cuda.device_count()):
-        #     mem_available = torch.cuda.mem_get_info(f'cuda:{gpu_number}')[0]
-        #     if mem_available <= leave_empty * torch.cuda.get_device_properties(gpu_number).total_memory:
-        #         mem_available = 0 
-        #         max_memory[gpu_number] = mem_available * usage_ratio
-        #     if gpu_number == 0:
-        #         max_memory[gpu_number] /= 10
-
-        ## Modelu preentrenatuaren Tokia 
+        ## Model preintrained instance (adding quantization  config) 
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name, 
             quantization_config = quantization_config,
@@ -1386,14 +1382,19 @@ class codeLlamaQ(CodexModel):
             device_map='auto'
         )
         self.model.eval()
+
+        ## OPTION B:
         # self.pipe = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
+    
+    # Code LLama quantized inference 
     def run_code_Quantized_llama(self, prompt):
-        from src.utils import complete_code
         input_ids = self.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)["input_ids"]
         generated_ids = self.model.generate(input_ids.to("cuda"), max_new_tokens=250)
         generated_ids = generated_ids[:, input_ids.shape[-1]:]
         generated_text = [self.tokenizer.decode(gen_id, skip_special_tokens=False) for gen_id in generated_ids]
         generated_text = [text.split('\n\n')[0] for text in generated_text]
+
+        # OPTION B:
         # generated_text = self.pipe(prompt, max_new_tokens = 128)
         # output = generated_text[0][0]['generated_text']
         # text = output.split("\n\n\n")[-3:]
@@ -1439,16 +1440,19 @@ class BLIPModel(BaseModel):
             self.processor = Blip2Processor.from_pretrained(f"Salesforce/{blip_v2_model_type}")
             # Device_map must be sequential for manual GPU selection
             try:
+                ## This code was used to get instance inserting quantized parameters 
+                ## but the order to apply quantized has changed
                 # self.model = Blip2ForConditionalGeneration.from_pretrained(
                 #     f"Salesforce/{blip_v2_model_type}", load_in_8bit=half_precision,
                 #     torch_dtype=torch.float16 if half_precision else "auto",
                 #     device_map="sequential", max_memory=max_memory
                 # )
-                ## CAMBIOS ENEKO
+
+                ## Necessary changes 
                 quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,llm_int8_enable_fp32_cpu_offload=True)
                 self.model = Blip2ForConditionalGeneration.from_pretrained(
                     f"Salesforce/{blip_v2_model_type}", quantization_config = quantization_config, device_map="sequential", 
-                    # attn_implementation="flash_attention_2"
+                    # attn_implementation="flash_attention_2" # To get predictions faster
                 )
             except Exception as e:
                 # Clarify error message. The problem is that it tries to load part of the model to disk.

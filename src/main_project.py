@@ -121,6 +121,8 @@ def worker_init(queue_results_):
     index_queue = mp.current_process()._identity[0] % len(queue_results_)
     queue_results = queue_results_[index_queue]
 
+
+# New function
 def save_results(all_data,dataset):
     results_dir = pathlib.Path(config['results_dir'])
     results_dir = results_dir / config.dataset.split
@@ -254,6 +256,7 @@ def main():
                             collate_fn=my_collate)
     input_type = dataset.input_type
 
+    # Lists to keep data for .csv
     all_results = []
     all_answers = []
     all_codes = []
@@ -274,8 +277,7 @@ def main():
             
             for i, batch in tqdm(enumerate(dataloader), total=n_batches):
 
-                # Combine all queries and get Codex predictions for them
-                # TODO compute Codex for next batch as current batch is being processed
+                # Combine all queries and get Codex predictions for them (code generation)
                 if not config.use_cached_codex:
                     codes = codex(prompt=batch['query'], base_prompt=base_prompt, input_type=input_type,
                                   extra_context=batch['extra_context'])
@@ -317,6 +319,7 @@ def main():
                 all_img_paths += [dataset.get_sample_path(idx) for idx in batch['index']]
                 #all_images.append(batch['image']) 
                 
+                # Metrics` part
                 if i % config.log_every == 0:
                     try:
                         if config.dataset.dataset_name=='RefCOCO':

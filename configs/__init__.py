@@ -10,15 +10,15 @@ import yaml
         - setenv CONFIG_NAMES "base_config"  
         - senenv CONFIG_NAMES "base_config, my_config, ..." -> To select multiple files
 '''
-
-# The default -> para cambiar 
+# set 0 to use the same way as viperGPT
 isquantized = bool(int(os.getenv('CODEX_QUANTIZED', '0')))
 
+# set 1
 if isquantized:
     dataset_name = os.getenv('DATASET', None)
-    execution_mode = os.getenv('EXEC_MODE', None) # En vez del None pondriamos  -> (config_codellama, my_config) por ejemplo
-    enable_models = bool(int(os.getenv('LOAD_MODELS', '0')))
-    cognition_models = os.getenv('COGNITION_MODEL', None) # config_mistral or config_gemma
+    execution_mode = os.getenv('EXEC_MODE', None) # "cache", "codex" or none 
+    enable_models = bool(int(os.getenv('LOAD_MODELS', '0'))) # 1(to execute code) or 0 (to generate only codex)
+    cognition_models = os.getenv('COGNITION_MODEL', None) # config_mistral or config_gemma (only used for OK-VQA dataset)
     config_names = []
     if enable_models:
         print("LOADING MODEL: ENABLED")
@@ -65,9 +65,11 @@ if isquantized:
     if not enable_models: 
         print("LOADING MODEL: DISABLED")
         configs.append(OmegaConf.load(f'configs/project_configs/disable_models.yaml'))
-
+# set 0
 else: # Code for the original project
     # The default
+    script_dir = os.path.abspath('/gaueko0/users/eamor002/viper/configs')
+    sys.path.append(script_dir)
     config_names = os.getenv('CONFIG_NAMES', None)
     if config_names is None:
         config_names = 'my_config'  # Modify this if you want to use another default config
